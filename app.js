@@ -41,7 +41,9 @@ const appState = {
   documentTypes: [],
   documentUploadTargetId: null,
   circleUserSlots: [],
-  editingCircleUserSlot: null
+  editingCircleUserSlot: null,
+  userActivationRequests: [],
+  editingActivationSlot: null
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -120,6 +122,9 @@ function setupEvents() {
   const circleUserForm = document.getElementById("circleUserForm");
   const cancelCircleUserBtn = document.getElementById("cancelCircleUserBtn");
   const refreshCircleUsersBtn = document.getElementById("refreshCircleUsersBtn");
+  const activationRequestForm = document.getElementById("activationRequestForm");
+  const cancelActivationRequestBtn = document.getElementById("cancelActivationRequestBtn");
+  const refreshActivationRequestsBtn = document.getElementById("refreshActivationRequestsBtn");
   const cancelCircleUserSlotBtn = document.getElementById("cancelCircleUserSlotBtn");
   const uploadCircleLogoBtn = document.getElementById("uploadCircleLogoBtn");
   const removeCircleLogoBtn = document.getElementById("removeCircleLogoBtn");
@@ -168,6 +173,9 @@ function setupEvents() {
   cancelCircleUserBtn?.addEventListener("click", hideCircleUserForm);
   cancelCircleUserSlotBtn?.addEventListener("click", hideCircleUserForm);
   refreshCircleUsersBtn?.addEventListener("click", loadCircleUsers);
+  activationRequestForm?.addEventListener("submit", handleActivationRequestSubmit);
+  cancelActivationRequestBtn?.addEventListener("click", hideActivationRequestForm);
+  refreshActivationRequestsBtn?.addEventListener("click", loadActivationRequests);
   uploadCircleLogoBtn?.addEventListener("click", triggerCircleLogoUpload);
   removeCircleLogoBtn?.addEventListener("click", removeCircleLogo);
   circleLogoUploadInput?.addEventListener("change", handleCircleLogoSelected);
@@ -483,6 +491,7 @@ async function loadAllCircleData() {
   hideDocumentForm();
   hideActiveCircleForm();
   hideCircleForm();
+  hideActivationRequestForm();
 
   await loadDashboardStats();
   await loadMembers();
@@ -491,6 +500,7 @@ async function loadAllCircleData() {
   await loadCulinaryEvents();
   await loadDocuments();
   await loadCircleUsers();
+  await loadActivationRequests();
   renderCirclesList();
   updatePermissionUi();
 }
@@ -4100,12 +4110,16 @@ function renderCircleUserSlotRow(slot, profile) {
   const displayName = profile?.display_name || slot.assigned_display_name || (isAvailable ? "Wolne miejsce" : "Użytkownik");
   const email = profile?.email || slot.assigned_email || "-";
   const role = roleLabel(profile?.role || slot.default_role);
-  const statusLabel = isAvailable ? "Do aktywacji" : isInvited ? "Zaproszony" : isInactive ? "Nieaktywny" : "Aktywny";
+  const statusLabel = isAvailable ? "Do aktywacji" : isInvited ? "Zgłoszono" : isInactive ? "Nieaktywny" : "Aktywny";
   const statusClass = isAvailable ? "status-due" : isInvited ? "status-exempt" : isInactive ? "status-cancelled" : "status-active";
 
   let actions = "";
   if (isAvailable) {
     actions = `<button type="button" onclick="window.handleActivateCircleUserSlot('${slot.id}')">Aktywuj</button>`;
+  } else if (isInvited) {
+    actions = `
+      <button type="button" onclick="window.showActivationRequestForSlot('${slot.id}')">Zgłoszenie</button>
+      <button type="button" onclick="window.cancelActivationRequestForSlot('${slot.id}')" class="secondary">Anuluj</button>`;
   } else {
     actions = `
       <button type="button" onclick="window.handleEditCircleUserSlot('${slot.id}')">Edytuj</button>
@@ -4137,11 +4151,11 @@ function showExtraUserSlotForm() {
 }
 
 function handleActivateCircleUserSlot(slotId) {
-  showCircleUserSlotForm(slotId, false);
+  showActivationRequestForm(slotId);
 }
 
 function handleEditCircleUserSlot(slotId) {
-  showCircleUserSlotForm(slotId, false);
+  showToast("Edycja aktywnego miejsca zostanie rozwinięta w kolejnej wersji. Na razie użyj Super Admina/Supabase w razie potrzeby.", "info");
 }
 
 function showCircleUserSlotForm(slotId = null, createNew = false) {
@@ -4370,6 +4384,413 @@ async function handleDeactivateCircleUserSlot(slotId) {
 }
 
 
+// =========================================================
+// ZGŁOSZENIA AKTYWACJI UŻYTKOWNIKÓW
+// =========================================================
+
+async function loadActivationRequests() {
+  const list = document.getElementById("activationRequestsList");
+
+  if (!isSuperAdmin() && !canManageUsers()) {
+    appState.userActivationRequests = [];
+    renderActivationRequestsList();
+    return;
+  }
+
+  let query = appState.supabase
+    .from("user_activation_requests")
+    .select("id, circle_id, slot_id, requested_display_name, requested_email, requested_phone, requested_role, request_notes, status, admin_notes, created_at, reviewed_at")
+    .order("created_at", { ascending: false });
+
+  if (!isSuperAdmin()) {
+    const circleId = getActiveCircleId();
+    if (!circleId) {
+      appState.userActivationRequests = [];
+      renderActivationRequestsList();
+      return;
+    }
+    query = query.eq("circle_id", circleId);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error(error);
+    appState.userActivationRequests = [];
+    renderActivationRequestsList();
+    if (list || canManageUsers()) {
+      showToast("Nie udało się pobrać zgłoszeń użytkowników. Sprawdź, czy wykonano SQL dla user_activation_requests.", "error");
+    }
+    return;
+  }
+
+  appState.userActivationRequests = data || [];
+  renderActivationRequestsList();
+}
+
+function renderActivationRequestsList() {
+  const list = document.getElementById("activationRequestsList");
+  if (!list) return;
+
+  if (!isSuperAdmin()) {
+    list.innerHTML = "";
+    return;
+  }
+
+  const requests = appState.userActivationRequests || [];
+
+  if (!requests.length) {
+    list.innerHTML = `<tr><td colspan="8">Brak zgłoszeń użytkowników.</td></tr>`;
+    return;
+  }
+
+  list.innerHTML = requests.map((request) => {
+    const circle = appState.availableCircles.find((item) => item.id === request.circle_id);
+    const slot = appState.circleUserSlots.find((item) => item.id === request.slot_id);
+    const statusInfo = activationRequestStatus(request.status);
+
+    return `
+      <tr>
+        <td>${formatDate(request.created_at)}</td>
+        <td>
+          <span class="member-name small-name">${escapeHtml(circle?.name || "Nieznane koło")}</span>
+          ${circle?.short_name ? `<span class="table-note">${escapeHtml(circle.short_name)}</span>` : ""}
+        </td>
+        <td>${escapeHtml(slot?.slot_name || "Miejsce użytkownika")}</td>
+        <td>
+          <span class="member-name small-name">${escapeHtml(request.requested_display_name || "Użytkownik")}</span>
+          ${request.request_notes ? `<span class="table-note">${escapeHtml(request.request_notes)}</span>` : ""}
+        </td>
+        <td>
+          <span>${escapeHtml(request.requested_email || "-")}</span>
+          ${request.requested_phone ? `<span class="table-note">Tel. ${escapeHtml(request.requested_phone)}</span>` : ""}
+        </td>
+        <td><span class="status-pill role-pill">${escapeHtml(roleLabel(request.requested_role))}</span></td>
+        <td><span class="status-pill ${statusInfo.className}">${statusInfo.label}</span></td>
+        <td class="table-actions">
+          ${request.status === "pending" ? `
+            <button type="button" onclick="window.markActivationRequestActivated('${request.id}')">Oznacz aktywowane</button>
+            <button type="button" class="secondary" onclick="window.rejectActivationRequest('${request.id}')">Odrzuć</button>
+          ` : `<span class="table-note">Zakończone</span>`}
+        </td>
+      </tr>`;
+  }).join("");
+}
+
+function activationRequestStatus(status) {
+  const map = {
+    pending: { label: "Oczekuje", className: "status-due" },
+    activated: { label: "Aktywowane", className: "status-active" },
+    rejected: { label: "Odrzucone", className: "status-cancelled" },
+    cancelled: { label: "Anulowane", className: "status-cancelled" }
+  };
+
+  return map[status] || { label: status || "-", className: "status-exempt" };
+}
+
+function showActivationRequestForm(slotId) {
+  if (!canManageUsers()) {
+    showToast("Brak uprawnień do zgłaszania użytkowników.", "error");
+    return;
+  }
+
+  const slot = appState.circleUserSlots.find((item) => item.id === slotId);
+  if (!slot) {
+    showToast("Nie znaleziono miejsca użytkownika.", "error");
+    return;
+  }
+
+  if (slot.status !== "available") {
+    showToast("To miejsce nie jest wolne do aktywacji.", "error");
+    return;
+  }
+
+  appState.editingActivationSlot = slot;
+
+  setInputValue("activationRequestSlotIdInput", slot.id);
+  setInputValue("activationRequestSlotNameInput", slot.slot_name || "Użytkownik");
+  setInputValue("activationRequestDisplayNameInput", "");
+  setInputValue("activationRequestEmailInput", "");
+  setInputValue("activationRequestPhoneInput", "");
+  setInputValue("activationRequestRoleInput", slot.default_role || "staff");
+  setInputValue("activationRequestNotesInput", "");
+
+  document.getElementById("activationRequestFormBox")?.classList.remove("hidden");
+  document.getElementById("activationRequestDisplayNameInput")?.focus();
+}
+
+function hideActivationRequestForm() {
+  appState.editingActivationSlot = null;
+  document.getElementById("activationRequestFormBox")?.classList.add("hidden");
+  setInputValue("activationRequestSlotIdInput", "");
+  setInputValue("activationRequestSlotNameInput", "");
+  setInputValue("activationRequestDisplayNameInput", "");
+  setInputValue("activationRequestEmailInput", "");
+  setInputValue("activationRequestPhoneInput", "");
+  setInputValue("activationRequestRoleInput", "staff");
+  setInputValue("activationRequestNotesInput", "");
+}
+
+async function handleActivationRequestSubmit(event) {
+  event.preventDefault();
+
+  if (!canManageUsers()) {
+    showToast("Brak uprawnień do zgłaszania użytkowników.", "error");
+    return;
+  }
+
+  const circleId = getActiveCircleId();
+  const slotId = document.getElementById("activationRequestSlotIdInput")?.value.trim();
+  const slot = appState.circleUserSlots.find((item) => item.id === slotId);
+
+  if (!circleId || !slot) {
+    showToast("Brak aktywnego koła albo miejsca użytkownika.", "error");
+    return;
+  }
+
+  const displayName = document.getElementById("activationRequestDisplayNameInput")?.value.trim();
+  const email = document.getElementById("activationRequestEmailInput")?.value.trim();
+  const phone = document.getElementById("activationRequestPhoneInput")?.value.trim();
+  const role = document.getElementById("activationRequestRoleInput")?.value;
+  const notes = document.getElementById("activationRequestNotesInput")?.value.trim();
+
+  if (!displayName || !email) {
+    showToast("Imię/nazwa oraz e-mail są wymagane.", "error");
+    return;
+  }
+
+  if (!["circle_admin", "staff", "accountant_readonly"].includes(role)) {
+    showToast("Nieprawidłowa rola użytkownika.", "error");
+    return;
+  }
+
+  const existingPending = appState.userActivationRequests.find((request) =>
+    request.slot_id === slotId && request.status === "pending"
+  );
+
+  if (existingPending) {
+    showToast("Dla tego miejsca istnieje już zgłoszenie oczekujące.", "error");
+    return;
+  }
+
+  const requestPayload = {
+    circle_id: circleId,
+    slot_id: slotId,
+    requested_display_name: displayName,
+    requested_email: email,
+    requested_phone: phone || null,
+    requested_role: role,
+    request_notes: notes || null,
+    status: "pending",
+    created_by: appState.user?.id || null
+  };
+
+  const { error: requestError } = await appState.supabase
+    .from("user_activation_requests")
+    .insert(requestPayload);
+
+  if (requestError) {
+    console.error(requestError);
+    showToast("Nie udało się wysłać zgłoszenia aktywacji.", "error");
+    return;
+  }
+
+  const { error: slotError } = await appState.supabase
+    .from("circle_user_slots")
+    .update({
+      default_role: role,
+      assigned_email: email,
+      assigned_display_name: displayName,
+      status: "invited",
+      notes: "Zgłoszenie aktywacji wysłane do administratora programu.",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", slotId)
+    .eq("circle_id", circleId);
+
+  if (slotError) {
+    console.error(slotError);
+    showToast("Zgłoszenie zapisano, ale nie udało się zaktualizować miejsca użytkownika.", "error");
+  }
+
+  hideActivationRequestForm();
+  await loadCircleUsers();
+  await loadActivationRequests();
+
+  showToast("Zgłoszenie zostało wysłane. Ze względów bezpieczeństwa weryfikacja aktywacji użytkownika może potrwać do 24 godzin.");
+}
+
+async function cancelActivationRequestForSlot(slotId) {
+  if (!canManageUsers()) return;
+
+  const circleId = getActiveCircleId();
+  const pending = (appState.userActivationRequests || []).find((request) =>
+    request.slot_id === slotId && request.circle_id === circleId && request.status === "pending"
+  );
+
+  if (pending) {
+    const { error } = await appState.supabase
+      .from("user_activation_requests")
+      .update({
+        status: "cancelled",
+        admin_notes: "Zgłoszenie anulowane z poziomu panelu koła.",
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: appState.user?.id || null,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", pending.id);
+
+    if (error) {
+      console.error(error);
+      showToast("Nie udało się anulować zgłoszenia.", "error");
+      return;
+    }
+  }
+
+  const { error: slotError } = await appState.supabase
+    .from("circle_user_slots")
+    .update({
+      assigned_email: null,
+      assigned_display_name: null,
+      status: "available",
+      notes: "Wolne miejsce do aktywacji przez administratora koła.",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", slotId)
+    .eq("circle_id", circleId);
+
+  if (slotError) {
+    console.error(slotError);
+    showToast("Nie udało się przywrócić miejsca użytkownika.", "error");
+    return;
+  }
+
+  await loadCircleUsers();
+  await loadActivationRequests();
+  showToast("Zgłoszenie zostało anulowane.");
+}
+
+function showActivationRequestForSlot(slotId) {
+  const pending = (appState.userActivationRequests || []).find((request) =>
+    request.slot_id === slotId && request.status === "pending"
+  );
+
+  if (!pending) {
+    showToast("Brak aktywnego zgłoszenia dla tego miejsca.", "error");
+    return;
+  }
+
+  showToast(`Zgłoszenie oczekuje: ${pending.requested_display_name}, ${pending.requested_email}.`);
+}
+
+async function markActivationRequestActivated(requestId) {
+  if (!isSuperAdmin()) return;
+
+  const request = (appState.userActivationRequests || []).find((item) => item.id === requestId);
+  if (!request) return;
+
+  const { data: matchingProfiles, error: profileLookupError } = await appState.supabase
+    .from("profiles")
+    .select("user_id, email, display_name, role, is_active")
+    .eq("circle_id", request.circle_id)
+    .ilike("email", request.requested_email)
+    .limit(1);
+
+  if (profileLookupError) {
+    console.error(profileLookupError);
+    showToast("Nie udało się sprawdzić profilu użytkownika.", "error");
+    return;
+  }
+
+  const profile = (matchingProfiles || [])[0];
+
+  if (!profile) {
+    showToast("Najpierw utwórz konto w Supabase Auth i profil użytkownika dla tego e-maila, potem oznacz zgłoszenie jako aktywowane.", "error");
+    return;
+  }
+
+  const { error: slotError } = await appState.supabase
+    .from("circle_user_slots")
+    .update({
+      assigned_user_id: profile.user_id,
+      assigned_email: profile.email || request.requested_email,
+      assigned_display_name: profile.display_name || request.requested_display_name,
+      default_role: profile.role || request.requested_role,
+      status: "active",
+      notes: "Użytkownik aktywowany przez administratora programu.",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", request.slot_id);
+
+  if (slotError) {
+    console.error(slotError);
+    showToast("Nie udało się aktywować miejsca użytkownika.", "error");
+    return;
+  }
+
+  const { error: requestError } = await appState.supabase
+    .from("user_activation_requests")
+    .update({
+      status: "activated",
+      reviewed_by: appState.user?.id || null,
+      reviewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", request.id);
+
+  if (requestError) {
+    console.error(requestError);
+    showToast("Miejsce aktywowano, ale nie udało się zamknąć zgłoszenia.", "error");
+  }
+
+  await loadActivationRequests();
+  await loadCircleUsers();
+  showToast("Zgłoszenie oznaczone jako aktywowane.");
+}
+
+async function rejectActivationRequest(requestId) {
+  if (!isSuperAdmin()) return;
+
+  const request = (appState.userActivationRequests || []).find((item) => item.id === requestId);
+  if (!request) return;
+
+  const { error: requestError } = await appState.supabase
+    .from("user_activation_requests")
+    .update({
+      status: "rejected",
+      reviewed_by: appState.user?.id || null,
+      reviewed_at: new Date().toISOString(),
+      admin_notes: "Zgłoszenie odrzucone przez administratora programu.",
+      updated_at: new Date().toISOString()
+    })
+    .eq("id", request.id);
+
+  if (requestError) {
+    console.error(requestError);
+    showToast("Nie udało się odrzucić zgłoszenia.", "error");
+    return;
+  }
+
+  if (request.slot_id) {
+    await appState.supabase
+      .from("circle_user_slots")
+      .update({
+        assigned_email: null,
+        assigned_display_name: null,
+        status: "available",
+        notes: "Wolne miejsce do aktywacji przez administratora koła.",
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", request.slot_id);
+  }
+
+  await loadActivationRequests();
+  await loadCircleUsers();
+  showToast("Zgłoszenie zostało odrzucone.");
+}
+
+
+
 function renderCirclesList() {
   const list = document.getElementById("circlesList");
   if (!list) return;
@@ -4478,6 +4899,10 @@ window.handleToggleCircleUser = handleToggleCircleUser;
 window.handleActivateCircleUserSlot = handleActivateCircleUserSlot;
 window.handleEditCircleUserSlot = handleEditCircleUserSlot;
 window.handleDeactivateCircleUserSlot = handleDeactivateCircleUserSlot;
+window.showActivationRequestForSlot = showActivationRequestForSlot;
+window.cancelActivationRequestForSlot = cancelActivationRequestForSlot;
+window.markActivationRequestActivated = markActivationRequestActivated;
+window.rejectActivationRequest = rejectActivationRequest;
 
 
 function normalizeText(value) {

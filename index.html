@@ -1042,56 +1042,52 @@
                 <button id="newCircleUserBtn" class="secondary-btn hidden" type="button">Dodaj miejsce</button>
               </div>
 
-              <div id="circleUserFormBox" class="form-box hidden">
-                <h3 id="circleUserFormTitle">Aktywuj użytkownika</h3>
-                <form id="circleUserForm" class="data-form">
-                  <input id="circleUserIdInput" type="hidden" />
-                  <input id="circleUserSlotIdInput" type="hidden" />
+              <div id="activationRequestFormBox" class="form-box hidden">
+                <h3 id="activationRequestFormTitle">Zgłoszenie aktywacji użytkownika</h3>
+                <p class="muted">
+                  Uzupełnij dane osoby, która ma otrzymać dostęp. Ze względów bezpieczeństwa
+                  weryfikacja aktywacji użytkownika może potrwać do 24 godzin.
+                </p>
+                <form id="activationRequestForm" class="data-form">
+                  <input id="activationRequestSlotIdInput" type="hidden" />
                   <div class="form-grid">
                     <label>
                       Miejsce
-                      <input id="circleUserSlotNameInput" type="text" required />
-                      <small class="field-help">Np. Administrator koła, Użytkownik 1, Użytkownik 2.</small>
+                      <input id="activationRequestSlotNameInput" type="text" disabled />
                     </label>
                     <label>
-                      Nazwa / imię
-                      <input id="circleUserDisplayNameInput" type="text" />
+                      Imię i nazwisko / nazwa
+                      <input id="activationRequestDisplayNameInput" type="text" required />
                     </label>
                     <label>
-                      UID konta użytkownika
-                      <input id="circleUserUidInput" type="text" placeholder="np. 0d16e490-..." />
-                      <small class="field-help">Tymczasowo: UID z Supabase Auth. Docelowo zastąpimy to zaproszeniem e-mail.</small>
+                      E-mail użytkownika
+                      <input id="activationRequestEmailInput" type="email" required />
                     </label>
                     <label>
-                      E-mail
-                      <input id="circleUserEmailInput" type="email" />
+                      Telefon kontaktowy
+                      <input id="activationRequestPhoneInput" type="text" />
                     </label>
                     <label>
                       Rola
-                      <select id="circleUserRoleInput">
-                        <option value="circle_admin">Administrator koła</option>
+                      <select id="activationRequestRoleInput">
                         <option value="staff">Pracownik / Zarząd</option>
                         <option value="accountant_readonly">Księgowa / podgląd</option>
-                      </select>
-                    </label>
-                    <label>
-                      Status
-                      <select id="circleUserActiveInput">
-                        <option value="available">Do aktywacji</option>
-                        <option value="active">Aktywny</option>
-                        <option value="inactive">Nieaktywny</option>
-                        <option value="invited">Zaproszony</option>
+                        <option value="circle_admin">Administrator koła</option>
                       </select>
                     </label>
                   </div>
+                  <label>
+                    Uwagi do administratora programu
+                    <textarea id="activationRequestNotesInput" rows="3" placeholder="Np. kto zgłasza, do czego użytkownik będzie potrzebny."></textarea>
+                  </label>
                   <div class="form-actions">
-                    <button type="submit" class="primary-btn">Zapisz miejsce</button>
-                    <button id="cancelCircleUserBtn" type="button" class="secondary-btn">Anuluj</button>
+                    <button type="submit" class="primary-btn">Wyślij zgłoszenie</button>
+                    <button id="cancelActivationRequestBtn" type="button" class="secondary-btn">Anuluj</button>
                   </div>
                 </form>
               </div>
 
-              <div class="list-toolbar">
+<div class="list-toolbar">
                 <p class="muted">Standardowo koło ma: Administrator koła + Użytkownik 1 + Użytkownik 2. Wolne miejsca są przygotowane do aktywacji.</p>
                 <div class="toolbar-actions">
                   <button id="refreshCircleUsersBtn" class="secondary-btn" type="button">Odśwież</button>
@@ -1234,6 +1230,38 @@
                   <tbody id="circleStorageList">
                     <tr>
                       <td colspan="6">Ładowanie limitów...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="admin-section">
+              <div class="module-header compact-header">
+                <div>
+                  <p class="eyebrow">Użytkownicy</p>
+                  <h3>Zgłoszenia użytkowników</h3>
+                  <p>Wnioski o aktywację dodatkowych użytkowników zgłaszane przez administratorów kół.</p>
+                </div>
+                <button id="refreshActivationRequestsBtn" class="secondary-btn" type="button">Odśwież</button>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Koło</th>
+                      <th>Miejsce</th>
+                      <th>Użytkownik</th>
+                      <th>Kontakt</th>
+                      <th>Rola</th>
+                      <th>Status</th>
+                      <th class="actions-cell">Akcje</th>
+                    </tr>
+                  </thead>
+                  <tbody id="activationRequestsList">
+                    <tr>
+                      <td colspan="8">Ładowanie zgłoszeń...</td>
                     </tr>
                   </tbody>
                 </table>
