@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Panel KGW</title>
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- EKRAN LOGOWANIA -->
+    <main id="loginView" class="login-page">
+      <section class="login-card">
+        <div class="login-left">
+          <div class="brand-badge">Panel KGW</div>
+          <h1>Wszystko dla koła w jednym miejscu</h1>
+          <p>
+            Lekki, prosty i przyjazny panel dla Kół Gospodyń Wiejskich.
+            Członkowie, składki, finanse, dokumenty i kulinarne wspomnienia
+            w jednym spokojnym miejscu.
+          </p>
+
+          <div class="login-features">
+            <span>Członkowie</span>
+            <span>Składki</span>
+            <span>Finanse</span>
+            <span>Dokumenty</span>
+            <span>Wspomnienia</span>
+          </div>
+        </div>
+
+        <form id="loginForm" class="login-form">
+          <h2>Zaloguj się</h2>
+          <p class="muted">Wpisz e-mail i hasło do panelu.</p>
+
+          <label>
+            E-mail
+            <input id="loginEmail" type="email" autocomplete="email" required />
+          </label>
+
+          <label>
+            Hasło
+            <input id="loginPassword" type="password" autocomplete="current-password" required />
+          </label>
+
+          <button type="submit" class="primary-btn">Zaloguj się</button>
+
+          <p id="loginError" class="error-message"></p>
+
+          <div class="version-line">
+            Panel KGW <span id="loginVersion"></span>
+          </div>
+        </form>
+      </section>
+    </main>
+
+    <!-- PANEL APLIKACJI -->
+    <main id="panelView" class="panel hidden">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <div class="logo-mark">KGW</div>
+          <div>
+            <strong>Panel KGW</strong>
+            <small id="sidebarVersion"></small>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <button class="nav-btn active" data-view="dashboard">Pulpit</button>
+          <button class="nav-btn" data-view="members">Członkowie</button>
+          <button class="nav-btn" data-view="contributions">Składki</button>
+          <button class="nav-btn" data-view="finance">Finanse</button>
+          <button class="nav-btn" data-view="culinary">Kulinarne wspomnienia</button>
+          <button class="nav-btn" data-view="documents">Dokumenty</button>
+          <button class="nav-btn" data-view="admin">Administracja</button>
+        </nav>
+
+        <div class="sidebar-bottom">
+          <button id="refreshPageBtn" class="refresh-btn" type="button" onclick="window.location.reload()">Odśwież stronę</button>
+          <button id="logoutBtn" class="logout-btn">Wyloguj</button>
+        </div>
+      </aside>
+
+      <section class="content">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Moje koło</p>
+            <h1 id="circleName">Ładowanie...</h1>
+          </div>
+
+          <div class="user-box">
+            <span id="userRole">Administrator</span>
+            <small id="userEmail">user@example.com</small>
+          </div>
+        </header>
+
+        <section id="superAdminBar" class="super-admin-bar hidden">
+          <div>
+            <p class="eyebrow">Tryb administratora programu</p>
+            <strong>Zarządzane koło</strong>
+          </div>
+          <label class="active-circle-picker">
+            <span>Wybierz koło</span>
+            <select id="activeCircleSelect"></select>
+          </label>
+          <button id="manageCirclesBtn" class="secondary-btn" type="button">Zarządzanie kołami</button>
+        </section>
+
+        <!-- PULPIT -->
+        <section id="dashboardView" class="view active-view">
+          <div class="welcome-card">
+            <div>
+              <p class="eyebrow">Pulpit</p>
+              <h2>Witaj w Panelu KGW</h2>
+              <p>
+                To jest pierwsza lekka wersja systemu. Sprawdzamy logowanie,
+                połączenie z Supabase i podstawowe dane koła.
+              </p>
+            </div>
+            <button id="refreshDashboardBtn" class="secondary-btn">Odśwież dane</button>
+          </div>
+
+          <div class="stats-grid">
+            <article class="stat-card">
+              <span>Członkowie</span>
+              <strong id="statMembers">0</strong>
+              <small>aktywni i nieaktywni</small>
+            </article>
+
+            <article class="stat-card">
+              <span>Składki</span>
+              <strong id="statContributions">0</strong>
+              <small>wszystkie wpisy</small>
+            </article>
+
+            <article class="stat-card">
+              <span>Saldo</span>
+              <strong id="statBalance">0,00 zł</strong>
+              <small>wpływy minus wydatki</small>
+            </article>
+
+            <article class="stat-card">
+              <span>Dokumenty</span>
+              <strong id="statDocuments">0</strong>
+              <small>rejestr dokumentów</small>
+            </article>
+          </div>
+
+          <div class="quick-actions">
+            <h3>Szybkie działania</h3>
+            <div class="action-grid">
+              <button data-view="members" data-action="new-member">Dodaj członka</button>
+              <button data-view="contributions" data-action="new-contribution">Dodaj składkę</button>
+              <button data-view="finance" data-action="new-finance-income">Dodaj wpływ</button>
+              <button data-view="finance" data-action="new-finance-expense">Dodaj wydatek</button>
+              <button data-view="culinary" data-action="new-culinary-event">Dodaj wspomnienie</button>
+              <button data-view="documents" data-action="new-document">Dodaj dokument</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- MODUŁY - NA RAZIE SZKIELET -->
+        <section id="membersView" class="view">
+          <div class="module-header">
+            <div>
+              <p class="eyebrow">Moduł</p>
+              <h2>Członkowie</h2>
+              <p class="muted">Zarządzaj członkami koła: dodawaj, edytuj i oznaczaj statusy.</p>
+            </div>
+            <button id="newMemberBtn" class="primary-btn">Nowy członek</button>
+          </div>
+
+          <div id="memberFormBox" class="form-box hidden">
+            <div class="form-header">
+              <div>
+                <p class="eyebrow">Formularz</p>
+                <h3 id="memberFormTitle">Nowy członek</h3>
+              </div>
+              <button id="cancelMemberBtn" type="button" class="secondary-btn">Anuluj</button>
+            </div>
+            <form id="memberForm" class="data-form">
+              <div class="form-grid">
+                <label>
+                  Imię
+                  <input id="memberFirstName" type="text" autocomplete="given-name" required />
+                </label>
+                <label>
+                  Nazwisko
+                  <input id="memberLastName" type="text" autocomplete="family-name" required />
+                </label>
+                <label>
+                  Telefon
+                  <input id="memberPhone" type="tel" autocomplete="tel" />
+                </label>
+                <label>
+                  E-mail
+                  <input id="memberEmail" type="email" autocomplete="email" />
+                </label>
+                <label>
+                  Status
+                  <select id="memberStatus">
+                    <option value="active">Aktywna</option>
+                    <option value="inactive">Nieaktywna</option>
+                  </select>
+                </label>
+                <label>
+                  Funkcja w kole
+                  <input id="memberFunction" type="text" />
+                </label>
+              </div>
+
+              <label>
+                Notatka
+                <textarea id="memberNotes" rows="4"></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button type="submit" class="primary-btn">Zapisz</button>
+                <button type="button" id="cancelMemberSubmitBtn" class="secondary-btn">Anuluj</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="list-toolbar">
+            <input id="memberSearch" type="search" placeholder="Szukaj po imieniu, nazwisku, telefonie, e-mailu, funkcji lub notatce" />
+            <div class="toolbar-actions">
+              <button id="refreshMembersBtn" class="secondary-btn">Odśwież</button>
+              <span id="membersCountLabel" class="muted">0 członków</span>
+            </div>
+          </div>
+
+          <div id="membersList" class="items-list">
+            <div class="module-card">
+              <p class="muted">Brak jeszcze członków. Wybierz „Nowy członek”, aby dodać pierwszą osobę.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="contributionsView" class="view">
+          <div class="module-header">
+            <div>
+              <p class="eyebrow">Moduł</p>
+              <h2>Składki</h2>
+              <p class="muted">Zarządzaj składkami członków: dodawaj, edytuj, oznaczaj i filtruj wpisy.</p>
+            </div>
+            <button id="newContributionBtn" class="primary-btn">Nowa składka</button>
+          </div>
+
+          <div class="generate-box">
+            <h3>Wygeneruj składki za okres</h3>
+            <div class="generate-grid">
+              <label>
+                Rok
+                <input id="genYear" type="number" min="2000" max="2100" />
+              </label>
+              <label>
+                Miesiąc
+                <select id="genMonth">
+                  <option value="1">styczeń</option>
+                  <option value="2">luty</option>
+                  <option value="3">marzec</option>
+                  <option value="4">kwiecień</option>
+                  <option value="5">maj</option>
+                  <option value="6">czerwiec</option>
+                  <option value="7">lipiec</option>
+                  <option value="8">sierpień</option>
+                  <option value="9">wrzesień</option>
+                  <option value="10">październik</option>
+                  <option value="11">listopad</option>
+                  <option value="12">grudzień</option>
+                </select>
+              </label>
+              <label>
+                Etykieta okresu
+                <input id="genPeriodLabel" type="text" placeholder="np. Czerwiec 2026" />
+              </label>
+              <label>
+                Kwota
+                <input id="genAmount" type="number" min="0" step="0.01" />
+              </label>
+            </div>
+            <div class="generate-actions">
+              <button id="generateContributionsBtn" class="primary-btn">Wygeneruj składki dla aktywnych członków</button>
+              <small class="muted">Domyślna kwota: z ustawienia koła lub 10.00</small>
+            </div>
+          </div>
+
+          <div class="summary-grid">
+            <article class="stat-card summary-card">
+              <span>Zapłacone</span>
+              <strong id="paidContributionsTotal">0,00 zł</strong>
+              <small>suma składek zapłaconych</small>
+            </article>
+            <article class="stat-card summary-card">
+              <span>Zaległe</span>
+              <strong id="dueContributionsTotal">0,00 zł</strong>
+              <small>suma składek zaległych</small>
+            </article>
+            <article class="stat-card summary-card">
+              <span>Liczba zaległości</span>
+              <strong id="dueContributionsCount">0</strong>
+              <small id="dueContributionsLabel">liczba zaległych</small>
+            </article>
+          </div>
+
+          <div id="contributionFormBox" class="form-box hidden">
+            <div class="form-header">
+              <div>
+                <p class="eyebrow">Formularz</p>
+                <h3 id="contributionFormTitle">Nowa składka</h3>
+              </div>
+              <button id="cancelContributionBtn" type="button" class="secondary-btn">Anuluj</button>
+            </div>
+            <form id="contributionForm" class="data-form">
+              <div class="form-grid">
+                <label>
+                  Członek
+                  <select id="contributionMemberId" required>
+                    <option value="">Wybierz członka</option>
+                  </select>
+                </label>
+                <label>
+                  Rok
+                  <input id="contributionYear" type="number" min="2000" max="2100" value="2026" required />
+                </label>
+                <label>
+                  Miesiąc
+                  <select id="contributionMonth" required>
+                    <option value="1">styczeń</option>
+                    <option value="2">luty</option>
+                    <option value="3">marzec</option>
+                    <option value="4">kwiecień</option>
+                    <option value="5">maj</option>
+                    <option value="6">czerwiec</option>
+                    <option value="7">lipiec</option>
+                    <option value="8">sierpień</option>
+                    <option value="9">wrzesień</option>
+                    <option value="10">październik</option>
+                    <option value="11">listopad</option>
+                    <option value="12">grudzień</option>
+                  </select>
+                </label>
+                <label>
+                  Okres
+                  <input id="contributionPeriodLabel" type="text" placeholder="np. styczeń 2026" />
+                </label>
+                <label>
+                  Kwota
+                  <input id="contributionAmount" type="number" min="0" step="0.01" required />
+                </label>
+                <label>
+                  Status
+                  <select id="contributionStatus" required>
+                    <option value="paid">Zapłacone</option>
+                    <option value="due">Zaległe</option>
+                    <option value="exempt">Zwolnione</option>
+                    <option value="cancelled">Anulowane</option>
+                  </select>
+                </label>
+                <label>
+                  Forma płatności
+                  <select id="contributionPaymentMethod" required>
+                    <option value="cash">Gotówka</option>
+                    <option value="transfer">Przelew</option>
+                    <option value="other">Inne</option>
+                  </select>
+                </label>
+                <label>
+                  Data wpłaty
+                  <input id="contributionPaidAt" type="date" />
+                </label>
+              </div>
+
+              <label>
+                Notatka
+                <textarea id="contributionNotes" rows="4"></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button type="submit" class="primary-btn">Zapisz</button>
+                <button type="button" id="cancelContributionSubmitBtn" class="secondary-btn">Anuluj</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="list-toolbar">
+            <input id="contributionSearch" type="search" placeholder="Szukaj po członku, okresie, statusie, płatności lub notatce" />
+            <div class="toolbar-filters">
+              <select id="contributionStatusFilter">
+                <option value="all">Wszystkie statusy</option>
+                <option value="paid">Zapłacone</option>
+                <option value="due">Zaległe</option>
+                <option value="exempt">Zwolnione</option>
+                <option value="cancelled">Anulowane</option>
+              </select>
+              <select id="contributionYearFilter">
+                <option value="all">Wszystkie lata</option>
+              </select>
+            </div>
+            <div class="toolbar-actions">
+              <button id="refreshContributionsBtn" class="secondary-btn">Odśwież</button>
+              <span id="contributionsCountLabel" class="muted">0 wpisów</span>
+            </div>
+          </div>
+
+          <div id="contributionsList" class="items-list">
+            <div class="module-card">
+              <p class="muted">Brak jeszcze składek. Wybierz „Nowa składka”, aby dodać pierwszy wpis.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="financeView" class="view">
+          <div class="module-header">
+            <div>
+              <p class="eyebrow">Moduł</p>
+              <h2>Finanse</h2>
+              <p class="muted">Zarządzaj wpływami, wydatkami i saldem koła.</p>
+            </div>
+            <button id="newFinanceEntryBtn" class="primary-btn">Nowy wpis</button>
+          </div>
+
+          <div class="summary-grid">
+            <article class="stat-card summary-card">
+              <span>Saldo</span>
+              <strong id="financeBalance">0,00 zł</strong>
+              <small>wpływy minus wydatki</small>
+            </article>
+            <article class="stat-card summary-card">
+              <span>Wpływy</span>
+              <strong id="financeIncome">0,00 zł</strong>
+              <small>suma wpływów</small>
+            </article>
+            <article class="stat-card summary-card">
+              <span>Wydatki</span>
+              <strong id="financeExpenses">0,00 zł</strong>
+              <small>suma wydatków</small>
+            </article>
+            <article class="stat-card summary-card">
+              <span>Anulowane</span>
+              <strong id="financeCancelled">0</strong>
+              <small>liczba anulowanych wpisów</small>
+            </article>
+          </div>
+
+          <div id="financeFormBox" class="form-box hidden">
+            <div class="form-header">
+              <div>
+                <p class="eyebrow">Formularz</p>
+                <h3 id="financeFormTitle">Nowy wpis finansowy</h3>
+              </div>
+              <button id="cancelFinanceBtn" type="button" class="secondary-btn">Anuluj</button>
+            </div>
+            <form id="financeForm" class="data-form">
+              <div class="form-grid">
+                <label>
+                  Data
+                  <input id="financeEntryDate" type="date" required />
+                </label>
+                <label>
+                  Typ
+                  <select id="financeType" required>
+                    <option value="income">Wpływ</option>
+                    <option value="expense">Wydatek</option>
+                  </select>
+                </label>
+                <label>
+                  Kategoria
+                  <input id="financeCategory" type="text" required />
+                </label>
+                <label>
+                  Kwota
+                  <input id="financeAmount" type="number" min="0" step="0.01" required />
+                </label>
+                <label>
+                  Metoda płatności
+                  <select id="financePaymentMethod" required>
+                    <option value="cash">Gotówka</option>
+                    <option value="transfer">Przelew</option>
+                    <option value="card">Karta</option>
+                    <option value="other">Inne</option>
+                  </select>
+                </label>
+                <label>
+                  Status
+                  <select id="financeStatus" required>
+                    <option value="active">Aktywny</option>
+                    <option value="cancelled">Anulowany</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Opis
+                <input id="financeDescription" type="text" required />
+              </label>
+
+              <label>
+                Notatka
+                <textarea id="financeNotes" rows="3"></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button type="submit" class="primary-btn">Zapisz</button>
+                <button type="button" id="cancelFinanceSubmitBtn" class="secondary-btn">Anuluj</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="list-toolbar">
+            <input id="financeSearch" type="search" placeholder="Szukaj po dacie, typie, kategorii, opisie, metodzie, notatce" />
+            <div class="toolbar-filters">
+              <select id="financeTypeFilter">
+                <option value="all">Wszystkie typy</option>
+                <option value="income">Wpływy</option>
+                <option value="expense">Wydatki</option>
+              </select>
+              <select id="financeStatusFilter">
+                <option value="all">Wszystkie statusy</option>
+                <option value="active">Aktywne</option>
+                <option value="cancelled">Anulowane</option>
+              </select>
+              <select id="financeYearFilter">
+                <option value="all">Wszystkie lata</option>
+              </select>
+            </div>
+            <div class="toolbar-actions">
+              <button id="refreshFinanceBtn" class="secondary-btn">Odśwież</button>
+              <span id="financeCountLabel" class="muted">0 wpisów</span>
+            </div>
+          </div>
+
+          <div id="financesList" class="items-list">
+            <div class="module-card">
+              <p class="muted">Brak jeszcze wpisów. Wybierz „Nowy wpis", aby dodać pierwszy wpis finansowy.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="culinaryView" class="view">
+          <div class="module-header">
+            <div>
+              <p class="eyebrow">Moduł</p>
+              <h2>Kulinarne wspomnienia</h2>
+              <p class="muted">Zapisuj wydarzenia, potrawy, osoby przygotowujące i kulinarne notatki koła.</p>
+            </div>
+            <button id="newCulinaryEventBtn" class="primary-btn">Nowe wydarzenie</button>
+          </div>
+
+          <div id="culinaryEventFormBox" class="form-box hidden">
+            <div class="form-header">
+              <div>
+                <p class="eyebrow">Formularz</p>
+                <h3 id="culinaryEventFormTitle">Nowe wydarzenie</h3>
+              </div>
+              <button id="cancelCulinaryEventBtn" type="button" class="secondary-btn">Anuluj</button>
+            </div>
+
+            <form id="culinaryEventForm" class="data-form">
+              <div class="form-grid">
+                <label>
+                  Data
+                  <input id="culinaryEventDate" type="date" />
+                </label>
+
+                <label>
+                  Miejsce
+                  <input id="culinaryEventPlace" type="text" placeholder="np. Włosań, remiza, szkoła" />
+                </label>
+
+                <label>
+                  Nazwa wydarzenia
+                  <input id="culinaryEventTitle" type="text" required placeholder="np. Dożynki 2026" />
+                </label>
+
+                <label>
+                  Krótki opis
+                  <input id="culinaryEventDescription" type="text" placeholder="np. Stoisko z ciastami i pierogami" />
+                </label>
+              </div>
+
+              <label>
+                Uwagi
+                <textarea id="culinaryEventNotes" rows="3" placeholder="np. Co wyszło dobrze, o czym pamiętać następnym razem"></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button type="submit" class="primary-btn">Zapisz wydarzenie</button>
+                <button id="cancelCulinaryEventSubmitBtn" type="button" class="secondary-btn">Anuluj</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="summary-grid culinary-summary-grid">
+            <article class="stat-card summary-card">
+              <span>Wydarzenia</span>
+              <strong id="culinaryEventsTotal">0</strong>
+              <small>wpisy w kronice</small>
+            </article>
+            <article class="stat-card summary-card">
+              <span>Potrawy</span>
+              <strong id="culinaryDishesTotal">0</strong>
+              <small>zapisane potrawy</small>
+            </article>
+          </div>
+
+          <div class="list-toolbar">
+            <input id="culinarySearch" type="search" placeholder="Szukaj po wydarzeniu, miejscu, opisie lub uwagach" />
+            <div class="toolbar-actions">
+              <button id="refreshCulinaryBtn" class="secondary-btn">Odśwież</button>
+              <span id="culinaryCountLabel" class="muted">0 wydarzeń</span>
+            </div>
+          </div>
+
+          <div id="culinaryEventsList" class="items-list">
+            <div class="module-card">
+              <p class="muted">Brak jeszcze kulinarnych wspomnień. Wybierz „Nowe wydarzenie”, aby dodać pierwszy wpis.</p>
+            </div>
+          </div>
+
+          <div id="culinaryDishesPanel" class="subsection-card hidden">
+            <div class="module-header inner-module-header">
+              <div>
+                <p class="eyebrow">Potrawy wydarzenia</p>
+                <h3 id="culinarySelectedEventTitle">Wybierz wydarzenie</h3>
+                <p id="culinarySelectedEventInfo" class="muted">Po wybraniu wydarzenia dodasz potrawy i osoby przygotowujące.</p>
+              </div>
+              <button id="newCulinaryDishBtn" class="primary-btn">Nowa potrawa</button>
+            </div>
+
+            <div id="culinaryDishFormBox" class="form-box hidden">
+              <div class="form-header">
+                <div>
+                  <p class="eyebrow">Formularz</p>
+                  <h3 id="culinaryDishFormTitle">Nowa potrawa</h3>
+                </div>
+                <button id="cancelCulinaryDishBtn" type="button" class="secondary-btn">Anuluj</button>
+              </div>
+
+              <form id="culinaryDishForm" class="data-form">
+                <div class="form-grid">
+                  <label>
+                    Nazwa potrawy
+                    <input id="culinaryDishName" type="text" required placeholder="np. Pierogi ruskie" />
+                  </label>
+
+                  <label>
+                    Przygotowała / przygotowali
+                    <input id="culinaryDishPreparedBy" type="text" placeholder="np. Anna, Karolina" />
+                  </label>
+                </div>
+
+                <label>
+                  Składniki
+                  <textarea id="culinaryDishIngredients" rows="3" placeholder="Najważniejsze składniki albo krótki przepis"></textarea>
+                </label>
+
+                <label>
+                  Opis
+                  <textarea id="culinaryDishDescription" rows="3" placeholder="Jak podano, co było ważne, co się sprawdziło"></textarea>
+                </label>
+
+                <label>
+                  Uwagi
+                  <textarea id="culinaryDishNotes" rows="2" placeholder="np. następnym razem mniej cukru"></textarea>
+                </label>
+
+                <div class="form-actions">
+                  <button type="submit" class="primary-btn">Zapisz potrawę</button>
+                  <button id="cancelCulinaryDishSubmitBtn" type="button" class="secondary-btn">Anuluj</button>
+                </div>
+              </form>
+            </div>
+
+            <div class="list-toolbar">
+              <input id="culinaryDishSearch" type="search" placeholder="Szukaj po potrawie, osobie, składnikach lub uwagach" />
+              <div class="toolbar-actions">
+                <button id="refreshCulinaryDishesBtn" class="secondary-btn">Odśwież potrawy</button>
+                <span id="culinaryDishesCountLabel" class="muted">0 potraw</span>
+              </div>
+            </div>
+
+            <div id="culinaryDishesList" class="items-list">
+              <div class="module-card">
+                <p class="muted">Wybierz wydarzenie i dodaj pierwszą potrawę.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="documentsView" class="view">
+          <div class="module-header">
+            <div>
+              <p class="eyebrow">Moduł</p>
+              <h2>Dokumenty</h2>
+              <p class="muted">Lekki rejestr uchwał, protokołów, umów, dotacji i innych dokumentów koła.</p>
+            </div>
+            <button id="newDocumentBtn" class="primary-btn">Nowy dokument</button>
+          </div>
+
+          <div id="documentFormBox" class="form-box hidden">
+            <div class="form-header">
+              <div>
+                <p class="eyebrow">Formularz</p>
+                <h3 id="documentFormTitle">Nowy dokument</h3>
+              </div>
+              <button id="cancelDocumentBtn" type="button" class="secondary-btn">Anuluj</button>
+            </div>
+
+            <form id="documentForm" class="data-form">
+              <div class="form-grid">
+                <label>
+                  Data dokumentu
+                  <input id="documentDate" type="date" />
+                </label>
+
+                <label>
+                  Typ dokumentu
+                  <select id="documentType" required>
+                    <option value="Uchwała">Uchwała</option>
+                    <option value="Protokół">Protokół</option>
+                    <option value="Umowa">Umowa</option>
+                    <option value="Dotacja">Dotacja</option>
+                    <option value="Pismo">Pismo</option>
+                    <option value="Inne">Inne</option>
+                  </select>
+                </label>
+              </div>
+
+              <label>
+                Tytuł
+                <input id="documentTitle" type="text" required />
+              </label>
+
+              <label>
+                Opis
+                <textarea id="documentDescription" rows="3"></textarea>
+              </label>
+
+              <div class="document-attachment-box">
+                <div class="attachment-row">
+                  <div>
+                    <strong>Załącznik</strong>
+                    <small id="documentAttachmentStatus">Brak pliku</small>
+                  </div>
+                  <div class="attachment-actions">
+                    <button id="openDocumentLinkBtn" type="button" class="secondary-btn hidden">Otwórz</button>
+                    <button id="showDocumentLinkBtn" type="button" class="secondary-btn">Dodaj plik</button>
+                  </div>
+                </div>
+
+                <input id="documentUploadInput" class="hidden" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" />
+                <input id="documentFileUrl" type="hidden" />
+              </div>
+
+              <label>
+                Uwagi
+                <textarea id="documentNotes" rows="3"></textarea>
+              </label>
+
+              <div class="form-actions">
+                <button type="submit" class="primary-btn">Zapisz</button>
+                <button type="button" id="cancelDocumentSubmitBtn" class="secondary-btn">Anuluj</button>
+              </div>
+            </form>
+          </div>
+
+          <div class="summary-grid documents-summary-grid">
+            <article class="stat-card summary-card">
+              <span>Dokumenty</span>
+              <strong id="documentsTotal">0</strong>
+              <small>wszystkie wpisy</small>
+            </article>
+            <article class="stat-card summary-card">
+              <span>Uchwały</span>
+              <strong id="documentsResolutions">0</strong>
+              <small>liczba uchwał</small>
+            </article>
+            <article class="stat-card summary-card">
+              <span>Protokoły</span>
+              <strong id="documentsProtocols">0</strong>
+              <small>liczba protokołów</small>
+            </article>
+            <article class="stat-card summary-card">
+              <span>Z plikiem</span>
+              <strong id="documentsWithFiles">0</strong>
+              <small>mają załącznik</small>
+            </article>
+          </div>
+
+          <div class="list-toolbar">
+            <input id="documentSearch" type="search" placeholder="Szukaj po dacie, typie, tytule, opisie i uwagach" />
+            <div class="toolbar-filters">
+              <select id="documentTypeFilter">
+                <option value="all">Wszystkie typy</option>
+              </select>
+              <select id="documentYearFilter">
+                <option value="all">Wszystkie lata</option>
+              </select>
+            </div>
+            <div class="toolbar-actions">
+              <button id="refreshDocumentsBtn" class="secondary-btn">Odśwież</button>
+              <span id="documentsCountLabel" class="muted">0 dokumentów</span>
+            </div>
+          </div>
+
+          <div id="documentsList" class="items-list">
+            <div class="module-card">
+              <p class="muted">Brak jeszcze dokumentów. Wybierz „Nowy dokument”, aby dodać pierwszy wpis.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="adminView" class="view">
+          <div class="module-card">
+            <p class="eyebrow">Moduł</p>
+            <h2>Administracja</h2>
+            <p>Dane koła, ustawienia, dane testowe, wersja programu i zarządzanie kołami dla Super Admina.</p>
+
+            <div class="admin-info">
+              <div>
+                <span>Wersja programu</span>
+                <strong id="adminVersion"></strong>
+              </div>
+              <div>
+                <span>Rola użytkownika</span>
+                <strong id="adminRole"></strong>
+              </div>
+              <div>
+                <span>Aktywne koło</span>
+                <strong id="adminCircleId"></strong>
+              </div>
+            </div>
+
+            <div class="admin-actions">
+              <button id="insertTestDataBtn" class="primary-btn">Dodaj dane testowe</button>
+              <button id="clearTestDataBtn" class="secondary-btn">Usuń dane testowe</button>
+            </div>
+
+            <section class="admin-section">
+              <div class="module-header compact-header">
+                <div>
+                  <p class="eyebrow">Ustawienia</p>
+                  <h3>Dane aktywnego koła</h3>
+                  <p>Podstawowe dane koła używane w panelu, składkach i kontaktach.</p>
+                </div>
+                <button id="editActiveCircleBtn" class="secondary-btn" type="button">Edytuj dane koła</button>
+              </div>
+
+              <div id="activeCircleFormBox" class="form-box hidden">
+                <form id="activeCircleForm" class="data-form">
+                  <div class="form-grid">
+                    <label>
+                      Nazwa koła
+                      <input id="circleNameInput" type="text" required />
+                    </label>
+                    <label>
+                      Skrót
+                      <input id="circleShortNameInput" type="text" />
+                    </label>
+                    <label>
+                      Status
+                      <select id="circleStatusInput">
+                        <option value="active">Aktywne</option>
+                        <option value="blocked">Zablokowane</option>
+                        <option value="archived">Archiwalne</option>
+                      </select>
+                    </label>
+                    <label>
+                      Domyślna składka
+                      <input id="circleFeeInput" type="number" min="0" step="0.01" />
+                    </label>
+                    <label>
+                      E-mail kontaktowy
+                      <input id="circleEmailInput" type="email" />
+                    </label>
+                    <label>
+                      Telefon kontaktowy
+                      <input id="circlePhoneInput" type="text" />
+                    </label>
+                  </div>
+                  <label>
+                    Notatki
+                    <textarea id="circleNotesInput" rows="3"></textarea>
+                  </label>
+                  <div class="form-actions">
+                    <button type="submit" class="primary-btn">Zapisz dane koła</button>
+                    <button id="cancelActiveCircleEditBtn" type="button" class="secondary-btn">Anuluj</button>
+                  </div>
+                </form>
+              </div>
+            </section>
+
+            <section id="superAdminCirclesSection" class="admin-section hidden">
+              <div class="module-header compact-header">
+                <div>
+                  <p class="eyebrow">Super Admin</p>
+                  <h3>Zarządzanie kołami</h3>
+                  <p>Dodawanie, edycja i przełączanie kół w jednym programie.</p>
+                </div>
+                <button id="newCircleBtn" class="primary-btn" type="button">Dodaj nowe koło</button>
+              </div>
+
+              <div id="circleFormBox" class="form-box hidden">
+                <h3 id="circleFormTitle">Dodaj koło</h3>
+                <form id="circleForm" class="data-form">
+                  <input id="circleIdInput" type="hidden" />
+                  <div class="form-grid">
+                    <label>
+                      Nazwa koła
+                      <input id="managedCircleNameInput" type="text" required />
+                    </label>
+                    <label>
+                      Skrót
+                      <input id="managedCircleShortNameInput" type="text" />
+                    </label>
+                    <label>
+                      Status
+                      <select id="managedCircleStatusInput">
+                        <option value="active">Aktywne</option>
+                        <option value="blocked">Zablokowane</option>
+                        <option value="archived">Archiwalne</option>
+                      </select>
+                    </label>
+                    <label>
+                      Domyślna składka
+                      <input id="managedCircleFeeInput" type="number" min="0" step="0.01" />
+                    </label>
+                    <label>
+                      E-mail kontaktowy
+                      <input id="managedCircleEmailInput" type="email" />
+                    </label>
+                    <label>
+                      Telefon kontaktowy
+                      <input id="managedCirclePhoneInput" type="text" />
+                    </label>
+                  </div>
+                  <label>
+                    Notatki
+                    <textarea id="managedCircleNotesInput" rows="3"></textarea>
+                  </label>
+                  <div class="form-actions">
+                    <button type="submit" class="primary-btn">Zapisz koło</button>
+                    <button id="cancelCircleBtn" type="button" class="secondary-btn">Anuluj</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Nazwa koła</th>
+                      <th>Status</th>
+                      <th>Składka</th>
+                      <th>Kontakt</th>
+                      <th class="actions-cell">Akcje</th>
+                    </tr>
+                  </thead>
+                  <tbody id="circlesList">
+                    <tr>
+                      <td colspan="5">Ładowanie kół...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
