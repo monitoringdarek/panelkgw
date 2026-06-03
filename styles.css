@@ -2537,7 +2537,7 @@ body {
 
 
 /* =========================================================
-   v2026.06.03-21b — stały dół menu bocznego
+   v2026.06.03-22 — stały dół menu bocznego
    Odśwież stronę i Wyloguj pozostają widoczne na dole sidebaru.
    ========================================================= */
 
@@ -2619,4 +2619,43 @@ body {
   .sidebar-bottom {
     margin-top: 12px !important;
   }
+}
+
+
+/* =======================================================
+   V22 — demo UX: wyróżnienie zaległych składek i klikalne wydarzenia
+   ======================================================= */
+
+.data-table tr.contribution-row-due {
+  background: linear-gradient(90deg, rgba(247, 191, 95, 0.18), rgba(255, 252, 244, 0.96));
+  box-shadow: inset 4px 0 0 rgba(197, 129, 33, 0.58);
+}
+
+.data-table tr.contribution-row-due:hover {
+  background: linear-gradient(90deg, rgba(247, 191, 95, 0.24), rgba(255, 250, 238, 0.98));
+}
+
+.data-table tr.contribution-row-due td:first-child strong::after {
+  content: "  • zaległość";
+  color: #9a651e;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.data-table tr.clickable-row {
+  cursor: pointer;
+}
+
+.data-table tr.clickable-row:hover {
+  background: rgba(111, 143, 114, 0.10);
+}
+
+.data-table tr.clickable-row .member-name {
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+
+.data-table tr.clickable-row:hover .member-name {
+  text-decoration: underline;
 }

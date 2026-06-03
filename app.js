@@ -1119,8 +1119,10 @@ function renderContributionsList() {
                     <button type="button" onclick="window.handleCancelContribution('${entry.id}')" class="secondary">Anuluj wpis</button>`
                 : `<span class="muted">Podgląd</span>`;
 
+              const dueRowClass = entry.status === "due" ? "contribution-row-due" : "";
+
               return `
-                <tr>
+                <tr class="${dueRowClass}">
                   <td><strong>${memberName}</strong></td>
                   <td>${escapeHtml(periodLabel)}</td>
                   <td class="amount-cell">${formatMoney(entry.amount)}</td>
@@ -2868,7 +2870,7 @@ function renderCulinaryEventsList() {
                  <button type="button" onclick="window.handlePrintCulinaryEvent('${event.id}')" class="secondary">Drukuj</button>`;
 
             return `
-              <tr class="${selectedClass}">
+              <tr class="${selectedClass} clickable-row" onclick="window.handleSelectCulinaryEvent('${event.id}')">
                 <td>${escapeHtml(formatDate(event.event_date))}</td>
                 <td>
                   <span class="member-name">${escapeHtml(event.title || "Bez tytułu")}</span>
@@ -2877,7 +2879,7 @@ function renderCulinaryEventsList() {
                 <td>${escapeHtml(event.place || "-")}</td>
                 <td><strong>${dishesCount}</strong></td>
                 <td>${escapeHtml(event.description || "-")}</td>
-                <td class="table-actions">
+                <td class="table-actions" onclick="event.stopPropagation()">
                   <span class="actions-wrap">
                     ${eventActions}
                   </span>
@@ -3115,6 +3117,11 @@ function handleSelectCulinaryEvent(eventId) {
   hideCulinaryDishForm();
   renderCulinaryEventsList();
   renderSelectedCulinaryEvent();
+
+  const panel = document.getElementById("culinaryDishesPanel");
+  if (panel && !panel.classList.contains("hidden")) {
+    panel.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
 }
 
 function handleEditCulinaryEvent(eventId) {
