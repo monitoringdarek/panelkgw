@@ -82,12 +82,14 @@ function setupEvents() {
   const refreshDashboardBtn = document.getElementById("refreshDashboardBtn");
   const newMemberBtn = document.getElementById("newMemberBtn");
   const refreshMembersBtn = document.getElementById("refreshMembersBtn");
+  const exportMembersExcelBtn = document.getElementById("exportMembersExcelBtn");
   const memberSearch = document.getElementById("memberSearch");
   const memberForm = document.getElementById("memberForm");
   const cancelMemberBtn = document.getElementById("cancelMemberBtn");
   const cancelMemberSubmitBtn = document.getElementById("cancelMemberSubmitBtn");
   const newContributionBtn = document.getElementById("newContributionBtn");
   const refreshContributionsBtn = document.getElementById("refreshContributionsBtn");
+  const exportContributionsExcelBtn = document.getElementById("exportContributionsExcelBtn");
   const contributionSearch = document.getElementById("contributionSearch");
   const generateContributionsBtn = document.getElementById("generateContributionsBtn");
   const contributionStatusFilter = document.getElementById("contributionStatusFilter");
@@ -119,12 +121,14 @@ function setupEvents() {
   refreshDashboardBtn?.addEventListener("click", loadDashboardStats);
   newMemberBtn?.addEventListener("click", () => showMemberForm());
   refreshMembersBtn?.addEventListener("click", loadMembers);
+  exportMembersExcelBtn?.addEventListener("click", exportMembersToExcel);
   memberSearch?.addEventListener("input", handleMemberSearch);
   memberForm?.addEventListener("submit", handleMemberFormSubmit);
   cancelMemberBtn?.addEventListener("click", hideMemberForm);
   cancelMemberSubmitBtn?.addEventListener("click", hideMemberForm);
   newContributionBtn?.addEventListener("click", () => showContributionForm());
   refreshContributionsBtn?.addEventListener("click", loadContributions);
+  exportContributionsExcelBtn?.addEventListener("click", exportContributionsToExcel);
   generateContributionsBtn?.addEventListener("click", generateContributionsForPeriod);
   contributionSearch?.addEventListener("input", handleContributionSearch);
   contributionStatusFilter?.addEventListener("change", handleContributionFilterChange);
@@ -827,15 +831,12 @@ function renderContributionSummary() {
   setText("dueContributionsLabel", dueCount === 0 ? "Zaległości pojawią się po dodaniu składek ze statusem Zaległe." : "liczba zaległych");
 }
 
-function renderContributionsList() {
-  const listEl = document.getElementById("contributionsList");
-  if (!listEl) return;
-
+function getVisibleContributions() {
   const searchTerm = appState.contributionSearchTerm;
   const statusFilter = appState.contributionFilterStatus;
   const yearFilter = appState.contributionFilterYear;
 
-  const visibleContributions = (appState.contributions || []).filter((entry) => {
+  return (appState.contributions || []).filter((entry) => {
     if (statusFilter !== "all" && entry.status !== statusFilter) {
       return false;
     }
@@ -861,6 +862,13 @@ function renderContributionsList() {
 
     return !searchTerm || text.includes(searchTerm);
   });
+}
+
+function renderContributionsList() {
+  const listEl = document.getElementById("contributionsList");
+  if (!listEl) return;
+
+  const visibleContributions = getVisibleContributions();
 
   if (!visibleContributions.length) {
     listEl.innerHTML = `<div class="module-card"><p class="muted">Brak pasujących składek. Spróbuj zmienić wyszukiwanie, filtr lub odświeżyć.</p></div>`;
@@ -1289,12 +1297,98 @@ function handleMemberSearch(event) {
   renderMembersList();
 }
 
-function renderMembersList() {
-  const listEl = document.getElementById("membersList");
-  if (!listEl) return;
 
+function exportMembersToExcel() {
+  const members = getVisibleMembers();
+
+  if (!members.length) {
+    showToast("Brak członków do eksportu.", "info");
+    return;
+  }
+
+  const rows = members.map((member) => ({
+    "Imię": member.first_name || "",
+    "Nazwisko": member.last_name || "",
+    "Telefon": member.phone || "",
+    "E-mail": member.email || "",
+    "Funkcja": member.function_in_circle || "",
+    "Status": member.member_status === "inactive" ? "Nieaktywna" : "Aktywna",
+    "Notatka": member.notes || ""
+  }));
+
+  exportRowsToXlsx(rows, "Członkowie", `czlonkowie_${getSafeCircleName()}_${todayIso()}.xlsx`);
+}
+
+function exportContributionsToExcel() {
+  const contributions = getVisibleContributions();
+
+  if (!contributions.length) {
+    showToast("Brak składek do eksportu.", "info");
+    return;
+  }
+
+  const rows = contributions.map((entry) => {
+    const member = appState.members.find((memberItem) => memberItem.id === entry.member_id);
+    const memberName = member ? `${member.first_name} ${member.last_name}` : "Nieznany członek";
+    const periodLabel = entry.period_label || `${monthLabel(entry.contribution_month)} ${entry.contribution_year}`;
+
+    return {
+      "Członek": memberName,
+      "Rok": entry.contribution_year || "",
+      "Miesiąc": entry.contribution_month || "",
+      "Okres": periodLabel || "",
+      "Kwota": Number(entry.amount || 0),
+      "Status": contributionStatusLabel(entry.status),
+      "Forma płatności": contributionPaymentMethodLabel(entry.payment_method),
+      "Data wpłaty": entry.paid_at || "",
+      "Notatka": entry.notes || ""
+    };
+  });
+
+  exportRowsToXlsx(rows, "Składki", `skladki_${getSafeCircleName()}_${todayIso()}.xlsx`);
+}
+
+function exportRowsToXlsx(rows, sheetName, fileName) {
+  if (!window.XLSX) {
+    showToast("Nie udało się załadować biblioteki eksportu Excel. Odśwież stronę i spróbuj ponownie.", "error");
+    return;
+  }
+
+  const worksheet = window.XLSX.utils.json_to_sheet(rows);
+  const headers = Object.keys(rows[0] || {});
+  worksheet["!cols"] = headers.map((header) => ({ wch: Math.min(Math.max(String(header).length + 8, 14), 34) }));
+
+  const workbook = window.XLSX.utils.book_new();
+  window.XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+  window.XLSX.writeFile(workbook, fileName);
+
+  showToast(`Wyeksportowano plik Excel: ${fileName}`, "success");
+}
+
+function getSafeCircleName() {
+  const circle = getActiveCircle();
+  return sanitizeFileName(circle?.short_name || circle?.name || "KGW");
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function sanitizeFileName(value) {
+  return String(value || "KGW")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ł/g, "l")
+    .replace(/Ł/g, "L")
+    .replace(/[^a-zA-Z0-9_-]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 60) || "KGW";
+}
+
+function getVisibleMembers() {
   const searchTerm = appState.memberSearchTerm;
-  const visibleMembers = appState.members.filter((member) => {
+
+  return (appState.members || []).filter((member) => {
     const text = [
       member.first_name,
       member.last_name,
@@ -1309,6 +1403,13 @@ function renderMembersList() {
 
     return !searchTerm || text.includes(searchTerm);
   });
+}
+
+function renderMembersList() {
+  const listEl = document.getElementById("membersList");
+  if (!listEl) return;
+
+  const visibleMembers = getVisibleMembers();
 
   if (!visibleMembers.length) {
     listEl.innerHTML = `<div class="module-card"><p class="muted">Brak pasujących członków. Spróbuj zmienić wyszukiwanie lub odświeżyć.</p></div>`;

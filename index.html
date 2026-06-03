@@ -228,6 +228,7 @@
           <div class="list-toolbar">
             <input id="memberSearch" type="search" placeholder="Szukaj po imieniu, nazwisku, telefonie, e-mailu, funkcji lub notatce" />
             <div class="toolbar-actions">
+              <button id="exportMembersExcelBtn" class="secondary-btn">Eksport Excel</button>
               <button id="refreshMembersBtn" class="secondary-btn">Odśwież</button>
               <span id="membersCountLabel" class="muted">0 członków</span>
             </div>
@@ -402,6 +403,7 @@
               </select>
             </div>
             <div class="toolbar-actions">
+              <button id="exportContributionsExcelBtn" class="secondary-btn">Eksport Excel</button>
               <button id="refreshContributionsBtn" class="secondary-btn">Odśwież</button>
               <span id="contributionsCountLabel" class="muted">0 wpisów</span>
             </div>
@@ -1184,6 +1186,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
