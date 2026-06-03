@@ -371,8 +371,8 @@ async function handleForgotPasswordSubmit(event) {
 
   if (error) {
     console.error(error);
-    setText("forgotPasswordMessage", "Nie udało się wysłać linku resetującego. Możliwe, że przekroczono limit wiadomości e-mail. Spróbuj później albo skontaktuj się z administratorem.");
-    showToast("Limit wiadomości e-mail został chwilowo przekroczony. Spróbuj później albo skontaktuj się z administratorem.", "error");
+    setText("forgotPasswordMessage", "Nie udało się wysłać linku resetującego. Spróbuj później.");
+    showToast("Nie udało się wysłać linku resetującego. Możliwe, że przekroczono limit wiadomości e-mail.", "error");
     return;
   }
 
@@ -3305,7 +3305,7 @@ function renderDocumentStorageUsage() {
     if (percent >= 100) {
       hint.textContent = "Limit miejsca na dokumenty został osiągnięty. Usuń niepotrzebne pliki albo skontaktuj się z administratorem programu.";
     } else if (percent >= 90) {
-      hint.textContent = "Miejsce na dokumenty jest prawie pełne. Usuń niepotrzebne pliki, a w razie potrzeby skontaktuj się z administratorem programu.";
+      hint.textContent = "Miejsce na dokumenty jest prawie pełne. Usuń niepotrzebne pliki albo skontaktuj się z administratorem programu.";
     } else if (percent >= 70) {
       hint.textContent = "Zbliżasz się do limitu miejsca na dokumenty. Warto usunąć niepotrzebne pliki.";
     } else {
@@ -3669,7 +3669,7 @@ async function handleDocumentFileSelected(event) {
 
   if (!limitCheck.allowed) {
     showToast(
-      `Limit miejsca na dokumenty został osiągnięty. Nie można dodać kolejnego pliku. Po dodaniu byłoby ${formatBytes(limitCheck.afterBytes)} z ${formatBytes(limitCheck.limitBytes)}. Usuń niepotrzebne dokumenty albo skontaktuj się z administratorem programu.`,
+      `Limit miejsca na dokumenty został przekroczony. Po dodaniu byłoby ${formatBytes(limitCheck.afterBytes)} z ${formatBytes(limitCheck.limitBytes)}.`,
       "error"
     );
     event.target.value = "";
@@ -4379,7 +4379,7 @@ async function handleCircleUserFormSubmit(event) {
     return;
   }
 
-  if (!isAllowedAccessRole(role)) {
+  if (!["circle_admin", "staff"].includes(role)) {
     showToast("Nieprawidłowa rola użytkownika.", "error");
     return;
   }
@@ -4585,7 +4585,7 @@ function renderActivationRequestsList() {
           <span>${escapeHtml(request.requested_email || "-")}</span>
           ${request.requested_phone ? `<span class="table-note">Tel. ${escapeHtml(request.requested_phone)}</span>` : ""}
         </td>
-        <td>${escapeHtml(circleFunctionLabel(request.requested_function))}</td>
+        <td>${escapeHtml(request.requested_function || "-")}</td>
         <td><span class="status-pill role-pill">${escapeHtml(roleLabel(request.requested_role))}</span></td>
         <td><span class="status-pill ${statusInfo.className}">${statusInfo.label}</span></td>
         <td class="table-actions">
@@ -4633,8 +4633,8 @@ function showActivationRequestForm(slotId) {
   setInputValue("activationRequestDisplayNameInput", "");
   setInputValue("activationRequestEmailInput", "");
   setInputValue("activationRequestPhoneInput", "");
-  setInputValue("activationRequestRoleInput", isAllowedAccessRole(slot.default_role) ? slot.default_role : "staff");
-  setInputValue("activationRequestFunctionInput", "");
+  setInputValue("activationRequestFunctionInput", "Członek zarządu");
+  setInputValue("activationRequestRoleInput", slot.default_role === "circle_admin" ? "circle_admin" : "staff");
   setInputValue("activationRequestNotesInput", "");
 
   document.getElementById("activationRequestFormBox")?.classList.remove("hidden");
@@ -4649,6 +4649,7 @@ function hideActivationRequestForm() {
   setInputValue("activationRequestDisplayNameInput", "");
   setInputValue("activationRequestEmailInput", "");
   setInputValue("activationRequestPhoneInput", "");
+  setInputValue("activationRequestFunctionInput", "Członek zarządu");
   setInputValue("activationRequestRoleInput", "staff");
   setInputValue("activationRequestNotesInput", "");
 }
@@ -4673,7 +4674,7 @@ async function handleActivationRequestSubmit(event) {
   const displayName = document.getElementById("activationRequestDisplayNameInput")?.value.trim();
   const email = document.getElementById("activationRequestEmailInput")?.value.trim();
   const phone = document.getElementById("activationRequestPhoneInput")?.value.trim();
-  const requestedFunction = document.getElementById("activationRequestFunctionInput")?.value.trim();
+  const requestedFunction = document.getElementById("activationRequestFunctionInput")?.value || "Członek zarządu";
   const role = document.getElementById("activationRequestRoleInput")?.value;
   const notes = document.getElementById("activationRequestNotesInput")?.value.trim();
 
@@ -4682,7 +4683,7 @@ async function handleActivationRequestSubmit(event) {
     return;
   }
 
-  if (!isAllowedAccessRole(role)) {
+  if (!["circle_admin", "staff"].includes(role)) {
     showToast("Nieprawidłowa rola użytkownika.", "error");
     return;
   }
@@ -4702,7 +4703,7 @@ async function handleActivationRequestSubmit(event) {
     requested_display_name: displayName,
     requested_email: email,
     requested_phone: phone || null,
-    requested_function: requestedFunction || null,
+    requested_function: requestedFunction,
     requested_role: role,
     request_notes: notes || null,
     status: "pending",
@@ -5355,22 +5356,10 @@ function roleLabel(role) {
     super_admin: "Super Admin",
     circle_admin: "Administrator koła",
     staff: "Pracownik / Zarząd",
-    accountant_readonly: "Księgowa / podgląd"
+    accountant_readonly: "Pracownik / Zarząd"
   };
 
   return labels[role] || role || "Użytkownik";
-}
-
-function accessRoleOptions() {
-  return ["circle_admin", "staff"];
-}
-
-function isAllowedAccessRole(role) {
-  return accessRoleOptions().includes(role);
-}
-
-function circleFunctionLabel(value) {
-  return value || "Nie podano";
 }
 
 function formatMoney(value) {

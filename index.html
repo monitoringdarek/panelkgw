@@ -927,11 +927,13 @@
                   <h4>6. Kulinarne wspomnienia</h4>
                   <p>Dodaj wydarzenie, a potem potrawy. Długie przepisy są dostępne przez przycisk „Szczegóły”.</p>
                 </article>
-                <article>
-                  <h4>7. Reset hasła</h4>
-                  <p>Na ekranie logowania kliknij „Nie pamiętasz hasła?”, wpisz e-mail i użyj linku z wiadomości. Jeśli pojawi się limit e-maili, spróbuj później albo skontaktuj się z administratorem.</p>
-                </article>
               </div>
+                          <div class="help-card">
+              <h4>Reset hasła i dostęp do konta</h4>
+              <p>Jeśli użytkownik zapomni hasła, powinien użyć opcji <strong>Nie pamiętasz hasła?</strong> na ekranie logowania. Link do ustawienia nowego hasła przychodzi e-mailem.</p>
+              <p>Jeśli wiadomość nie przychodzi albo pojawia się informacja o limicie e-maili, spróbuj ponownie później albo skontaktuj się z administratorem programu.</p>
+            </div>
+
             </div>
 
             <div id="helpContact" class="help-panel">
@@ -960,12 +962,29 @@
             <div id="helpUpdates" class="help-panel">
               <h3>Uaktualnienia — opis zmian</h3>
               <div class="updates-list">
-                <article><strong>v2026.06.03-17</strong><p>Uproszczono role użytkowników, dodano funkcję w kole oraz dopracowano komunikaty limitu dokumentów i resetu hasła.</p></article>
-                <article><strong>v2026.06.03-16</strong><p>Dodano obsługę resetu hasła: link „Nie pamiętasz hasła?” oraz ekran ustawiania nowego hasła.</p></article>
-                <article><strong>v2026.06.03-15</strong><p>Dodano zgłoszenia aktywacji użytkowników do administratora programu.</p></article>
+                <article><strong>v2026.06.03-17c</strong><p>Uproszczono role dostępu, dodano funkcję w kole przy zgłoszeniach użytkowników oraz doprecyzowano komunikaty limitów dokumentów i resetu hasła.</p></article>
+                <article><strong>v2026.06.03-16</strong><p>Dodano obsługę resetu hasła: link „Nie pamiętasz hasła?”, ekran ustawienia nowego hasła i czytelne komunikaty błędów.</p></article>
+                <article><strong>v2026.06.03-15</strong><p>Dodano zgłoszenia aktywacji użytkowników i widok zgłoszeń w panelu Super Admin.</p></article>
               </div>
-              <p class="muted">Pełna historia zmian jest dostępna u administratora programu.</p>
+              <p class="muted">Pokazujemy tylko 3 ostatnie wersje, żeby lista zmian była krótka i czytelna.</p>
             </div>
+
+            <div id="helpAbout" class="help-panel">
+              <h3>O programie</h3>
+              <div class="admin-info">
+                <div>
+                  <span>Nazwa</span>
+                  <strong>Panel KGW</strong>
+                </div>
+                <div>
+                  <span>Wersja</span>
+                  <strong id="helpVersion"></strong>
+                </div>
+                <div>
+                  <span>Przeznaczenie</span>
+                  <strong>Panel dla Kół Gospodyń Wiejskich</strong>
+                </div>
+              </div>
               <p class="muted">Program pomaga prowadzić członków, składki, finanse, dokumenty i kulinarne wspomnienia koła w jednym miejscu.</p>
             </div>
           </div>
@@ -1100,17 +1119,8 @@
                       <input id="activationRequestPhoneInput" type="text" />
                     </label>
                     <label>
-                      Poziom dostępu do programu
-                      <select id="activationRequestRoleInput">
-                        <option value="staff">Pracownik / Zarząd</option>
-                        <option value="circle_admin">Administrator koła</option>
-                      </select>
-                      <small class="field-help">Określa, co użytkownik może robić w programie.</small>
-                    </label>
-                    <label>
                       Funkcja w kole
                       <select id="activationRequestFunctionInput">
-                        <option value="">Nie wybrano</option>
                         <option value="Przewodnicząca/y">Przewodnicząca/y</option>
                         <option value="Wiceprzewodnicząca/y">Wiceprzewodnicząca/y</option>
                         <option value="Członek zarządu">Członek zarządu</option>
@@ -1118,7 +1128,13 @@
                         <option value="Sekretarz">Sekretarz</option>
                         <option value="Inna">Inna</option>
                       </select>
-                      <small class="field-help">Funkcja organizacyjna w kole. Nie wpływa na uprawnienia w programie.</small>
+                    </label>
+                    <label>
+                      Poziom dostępu do programu
+                      <select id="activationRequestRoleInput">
+                        <option value="staff">Pracownik / Zarząd</option>
+                        <option value="circle_admin">Administrator koła</option>
+                      </select>
                     </label>
                   </div>
                   <label>
@@ -1146,6 +1162,7 @@
                     <tr>
                       <th>Miejsce</th>
                       <th>Użytkownik</th>
+                      <th>Funkcja w kole</th>
                       <th>Dostęp</th>
                       <th>Status</th>
                       <th class="actions-cell">Akcje</th>
@@ -1209,7 +1226,7 @@
                     <label>
                       Limit dokumentów (MB)
                       <input id="managedCircleStorageLimitInput" type="number" min="1" step="1" />
-                      <small class="field-help">Standardowo 50 MB. Zmiana limitu wymaga kontroli dostępnego miejsca.</small>
+                      <small class="field-help">Domyślnie 50 MB. Możesz zmienić limit dla większych kół.</small>
                     </label>
                     <label>
                       E-mail kontaktowy
@@ -1257,7 +1274,7 @@
                 <div>
                   <p class="eyebrow">Limity miejsca</p>
                   <h3>Limity dokumentów</h3>
-                  <p>Kontrola przestrzeni Supabase Storage. Standardowo każde koło ma sztywny limit 50 MB na dokumenty.</p>
+                  <p>Kontrola przestrzeni Supabase Storage. Domyślnie każde koło ma 50 MB na dokumenty.</p>
                 </div>
               </div>
               <div class="table-wrapper">
@@ -1299,6 +1316,7 @@
                       <th>Miejsce</th>
                       <th>Użytkownik</th>
                       <th>Kontakt</th>
+                      <th>Funkcja w kole</th>
                       <th>Dostęp</th>
                       <th>Status</th>
                       <th class="actions-cell">Akcje</th>
