@@ -39,7 +39,9 @@ const appState = {
   documentFilterYear: "all",
   documentYears: [],
   documentTypes: [],
-  documentUploadTargetId: null
+  documentUploadTargetId: null,
+  circleUserSlots: [],
+  editingCircleUserSlot: null
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -118,6 +120,7 @@ function setupEvents() {
   const circleUserForm = document.getElementById("circleUserForm");
   const cancelCircleUserBtn = document.getElementById("cancelCircleUserBtn");
   const refreshCircleUsersBtn = document.getElementById("refreshCircleUsersBtn");
+  const cancelCircleUserSlotBtn = document.getElementById("cancelCircleUserSlotBtn");
   const uploadCircleLogoBtn = document.getElementById("uploadCircleLogoBtn");
   const removeCircleLogoBtn = document.getElementById("removeCircleLogoBtn");
   const circleLogoUploadInput = document.getElementById("circleLogoUploadInput");
@@ -160,9 +163,10 @@ function setupEvents() {
   adminContactModal?.addEventListener("click", (event) => {
     if (event.target === adminContactModal) hideAdminContactModal();
   });
-  newCircleUserBtn?.addEventListener("click", () => showCircleUserForm());
+  newCircleUserBtn?.addEventListener("click", showExtraUserSlotForm);
   circleUserForm?.addEventListener("submit", handleCircleUserFormSubmit);
   cancelCircleUserBtn?.addEventListener("click", hideCircleUserForm);
+  cancelCircleUserSlotBtn?.addEventListener("click", hideCircleUserForm);
   refreshCircleUsersBtn?.addEventListener("click", loadCircleUsers);
   uploadCircleLogoBtn?.addEventListener("click", triggerCircleLogoUpload);
   removeCircleLogoBtn?.addEventListener("click", removeCircleLogo);
@@ -3967,7 +3971,7 @@ async function handleCircleFormSubmit(event) {
 
 
 // =========================================================
-// UŻYTKOWNICY KOŁA / ROLE
+// UŻYTKOWNICY KOŁA / MIEJSCA DOSTĘPU
 // =========================================================
 
 async function loadCircleUsers() {
@@ -3978,34 +3982,52 @@ async function loadCircleUsers() {
 
   if (!canManageUsers()) {
     appState.circleUsers = [];
+    appState.circleUserSlots = [];
     list.innerHTML = "";
-    if (countLabel) setText("circleUsersCountLabel", "0 użytkowników");
+    if (countLabel) setText("circleUsersCountLabel", "0 / 0 aktywnych miejsc");
     return;
   }
 
   const circleId = getActiveCircleId();
   if (!circleId) {
     appState.circleUsers = [];
+    appState.circleUserSlots = [];
     list.innerHTML = `<tr><td colspan="5">Brak aktywnego koła.</td></tr>`;
-    if (countLabel) setText("circleUsersCountLabel", "0 użytkowników");
+    if (countLabel) setText("circleUsersCountLabel", "0 / 0 aktywnych miejsc");
     return;
   }
 
-  const { data, error } = await appState.supabase
+  const { data: profiles, error: profilesError } = await appState.supabase
     .from("profiles")
     .select("user_id, circle_id, display_name, email, role, is_active, created_at, updated_at")
     .eq("circle_id", circleId)
     .order("display_name", { ascending: true });
 
-  if (error) {
-    console.error(error);
+  if (profilesError) {
+    console.error(profilesError);
     showToast("Nie udało się pobrać użytkowników koła.", "error");
     appState.circleUsers = [];
+    appState.circleUserSlots = [];
     renderCircleUsersList();
     return;
   }
 
-  appState.circleUsers = (data || []).filter((profile) => profile.role !== "super_admin");
+  appState.circleUsers = (profiles || []).filter((profile) => profile.role !== "super_admin");
+
+  const { data: slots, error: slotsError } = await appState.supabase
+    .from("circle_user_slots")
+    .select("id, circle_id, slot_name, default_role, assigned_user_id, assigned_email, assigned_display_name, status, notes, created_at, updated_at")
+    .eq("circle_id", circleId)
+    .order("created_at", { ascending: true });
+
+  if (slotsError) {
+    console.error(slotsError);
+    showToast("Nie udało się pobrać miejsc użytkowników koła. Sprawdź, czy wykonano SQL dla circle_user_slots.", "error");
+    appState.circleUserSlots = [];
+  } else {
+    appState.circleUserSlots = slots || [];
+  }
+
   renderCircleUsersList();
 }
 
@@ -4015,89 +4037,185 @@ function renderCircleUsersList() {
 
   if (!list) return;
 
-  if (countLabel) {
-    setText("circleUsersCountLabel", `${appState.circleUsers.length} użytkowników`);
-  }
-
   if (!canManageUsers()) {
     list.innerHTML = "";
     return;
   }
 
-  if (!appState.circleUsers.length) {
-    list.innerHTML = `<tr><td colspan="5">Brak użytkowników przypisanych do aktywnego koła.</td></tr>`;
+  const slots = appState.circleUserSlots || [];
+  const profiles = appState.circleUsers || [];
+  const profileById = new Map(profiles.map((profile) => [profile.user_id, profile]));
+  const profileByEmail = new Map(profiles.filter((profile) => profile.email).map((profile) => [String(profile.email).toLowerCase(), profile]));
+  const activeSlots = slots.filter((slot) => slot.status === "active").length;
+
+  if (countLabel) {
+    setText("circleUsersCountLabel", `${activeSlots} / ${slots.length || profiles.length} aktywnych miejsc`);
+  }
+
+  if (!slots.length) {
+    if (!profiles.length) {
+      list.innerHTML = `<tr><td colspan="5">Brak miejsc użytkowników. Dodaj miejsca w bazie lub odśwież dane.</td></tr>`;
+      return;
+    }
+
+    list.innerHTML = profiles.map((profile) => renderCircleUserProfileRow(profile)).join("");
     return;
   }
 
-  list.innerHTML = appState.circleUsers.map((profile) => {
-    const statusClass = profile.is_active ? "status-active" : "status-cancelled";
-    const statusLabel = profile.is_active ? "Aktywny" : "Zablokowany";
-    const role = roleLabel(profile.role);
-    const canEditThisUser = canManageUsers() && profile.role !== "super_admin";
-
-    const actions = canEditThisUser
-      ? `<button type="button" onclick="window.handleEditCircleUser('${profile.user_id}')">Edytuj</button>
-         <button type="button" onclick="window.handleToggleCircleUser('${profile.user_id}')" class="secondary">${profile.is_active ? "Zablokuj" : "Aktywuj"}</button>`
-      : `<span class="muted">Administrator programu</span>`;
-
-    return `
-      <tr>
-        <td>
-          <span class="member-name">${escapeHtml(profile.display_name || "Użytkownik")}</span>
-        </td>
-        <td>${escapeHtml(profile.email || "-")}</td>
-        <td><span class="status-pill role-pill">${escapeHtml(role)}</span></td>
-        <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
-        <td class="table-actions">
-          ${actions}
-        </td>
-      </tr>`;
+  list.innerHTML = slots.map((slot) => {
+    const profile = slot.assigned_user_id
+      ? profileById.get(slot.assigned_user_id)
+      : (slot.assigned_email ? profileByEmail.get(String(slot.assigned_email).toLowerCase()) : null);
+    return renderCircleUserSlotRow(slot, profile);
   }).join("");
 }
 
-function showCircleUserForm(userId = null) {
+function renderCircleUserProfileRow(profile) {
+  const statusClass = profile.is_active ? "status-active" : "status-cancelled";
+  const statusLabel = profile.is_active ? "Aktywny" : "Zablokowany";
+  const role = roleLabel(profile.role);
+
+  return `
+    <tr>
+      <td>
+        <span class="member-name">${escapeHtml(profile.display_name || "Użytkownik")}</span>
+        <span class="table-note">Profil przypisany do koła</span>
+      </td>
+      <td>${escapeHtml(profile.email || "-")}</td>
+      <td><span class="status-pill role-pill">${escapeHtml(role)}</span></td>
+      <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+      <td class="table-actions">
+        <button type="button" onclick="window.handleEditCircleUser('${profile.user_id}')">Edytuj</button>
+        <button type="button" onclick="window.handleToggleCircleUser('${profile.user_id}')" class="secondary">${profile.is_active ? "Zablokuj" : "Aktywuj"}</button>
+      </td>
+    </tr>`;
+}
+
+function renderCircleUserSlotRow(slot, profile) {
+  const status = slot.status || "available";
+  const isAvailable = status === "available";
+  const isActive = status === "active";
+  const isInvited = status === "invited";
+  const isInactive = status === "inactive";
+  const displayName = profile?.display_name || slot.assigned_display_name || (isAvailable ? "Wolne miejsce" : "Użytkownik");
+  const email = profile?.email || slot.assigned_email || "-";
+  const role = roleLabel(profile?.role || slot.default_role);
+  const statusLabel = isAvailable ? "Do aktywacji" : isInvited ? "Zaproszony" : isInactive ? "Nieaktywny" : "Aktywny";
+  const statusClass = isAvailable ? "status-due" : isInvited ? "status-exempt" : isInactive ? "status-cancelled" : "status-active";
+
+  let actions = "";
+  if (isAvailable) {
+    actions = `<button type="button" onclick="window.handleActivateCircleUserSlot('${slot.id}')">Aktywuj</button>`;
+  } else {
+    actions = `
+      <button type="button" onclick="window.handleEditCircleUserSlot('${slot.id}')">Edytuj</button>
+      <button type="button" onclick="window.handleDeactivateCircleUserSlot('${slot.id}')" class="secondary">${isActive ? "Wyłącz miejsce" : "Przywróć"}</button>`;
+  }
+
+  return `
+    <tr>
+      <td>
+        <span class="member-name">${escapeHtml(slot.slot_name || "Miejsce użytkownika")}</span>
+        ${slot.notes ? `<span class="table-note">${escapeHtml(slot.notes)}</span>` : ""}
+      </td>
+      <td>
+        <span class="member-name small-name">${escapeHtml(displayName)}</span>
+        <span class="table-note">${escapeHtml(email)}</span>
+      </td>
+      <td><span class="status-pill role-pill">${escapeHtml(role)}</span></td>
+      <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+      <td class="table-actions">${actions}</td>
+    </tr>`;
+}
+
+function showExtraUserSlotForm() {
+  if (!isSuperAdmin()) {
+    showToast("Dodatkowe miejsca może tworzyć administrator programu.", "error");
+    return;
+  }
+  showCircleUserSlotForm(null, true);
+}
+
+function handleActivateCircleUserSlot(slotId) {
+  showCircleUserSlotForm(slotId, false);
+}
+
+function handleEditCircleUserSlot(slotId) {
+  showCircleUserSlotForm(slotId, false);
+}
+
+function showCircleUserSlotForm(slotId = null, createNew = false) {
   if (!canManageUsers()) {
     showToast("Brak uprawnień do zarządzania użytkownikami.", "error");
     return;
   }
 
+  const slot = slotId ? appState.circleUserSlots.find((item) => item.id === slotId) : null;
+  appState.editingCircleUserSlot = slot || (createNew ? { createNew: true } : null);
+
   const formBox = document.getElementById("circleUserFormBox");
   const title = document.getElementById("circleUserFormTitle");
-  const user = userId ? appState.circleUsers.find((item) => item.user_id === userId) : null;
-
-  appState.editingCircleUser = user || null;
-
-  setInputValue("circleUserIdInput", user?.user_id || "");
-  setInputValue("circleUserUidInput", user?.user_id || "");
-  setInputValue("circleUserDisplayNameInput", user?.display_name || "");
-  setInputValue("circleUserEmailInput", user?.email || "");
-  setInputValue("circleUserRoleInput", user?.role && user.role !== "super_admin" ? user.role : "circle_admin");
-  setInputValue("circleUserActiveInput", user?.is_active === false ? "false" : "true");
-
   const uidInput = document.getElementById("circleUserUidInput");
-  if (uidInput) {
-    uidInput.disabled = Boolean(user);
-  }
 
-  if (title) {
-    title.textContent = user ? "Edytuj profil użytkownika" : "Dodaj profil użytkownika";
-  }
+  setInputValue("circleUserSlotIdInput", slot?.id || "");
+  setInputValue("circleUserSlotNameInput", slot?.slot_name || (createNew ? "Użytkownik" : ""));
+  setInputValue("circleUserIdInput", slot?.assigned_user_id || "");
+  setInputValue("circleUserUidInput", slot?.assigned_user_id || "");
+  setInputValue("circleUserDisplayNameInput", slot?.assigned_display_name || "");
+  setInputValue("circleUserEmailInput", slot?.assigned_email || "");
+  setInputValue("circleUserRoleInput", slot?.default_role || "staff");
+  setInputValue("circleUserActiveInput", slot?.status === "active" ? "active" : slot?.status === "inactive" ? "inactive" : slot?.status === "invited" ? "invited" : "available");
+
+  if (uidInput) uidInput.disabled = false;
+  if (title) title.textContent = createNew ? "Dodaj miejsce użytkownika" : (slot?.status === "available" ? "Aktywuj użytkownika" : "Edytuj miejsce użytkownika");
 
   formBox?.classList.remove("hidden");
   document.getElementById("circleUserDisplayNameInput")?.focus();
 }
 
+function showCircleUserForm(userId = null) {
+  const profile = userId ? appState.circleUsers.find((item) => item.user_id === userId) : null;
+  if (!profile) {
+    showCircleUserSlotForm(null, true);
+    return;
+  }
+
+  const pseudoSlot = {
+    id: null,
+    slot_name: "Użytkownik koła",
+    default_role: profile.role,
+    assigned_user_id: profile.user_id,
+    assigned_email: profile.email,
+    assigned_display_name: profile.display_name,
+    status: profile.is_active ? "active" : "inactive"
+  };
+
+  appState.editingCircleUserSlot = pseudoSlot;
+  const formBox = document.getElementById("circleUserFormBox");
+  const title = document.getElementById("circleUserFormTitle");
+  setInputValue("circleUserSlotIdInput", "");
+  setInputValue("circleUserSlotNameInput", pseudoSlot.slot_name);
+  setInputValue("circleUserIdInput", profile.user_id || "");
+  setInputValue("circleUserUidInput", profile.user_id || "");
+  setInputValue("circleUserDisplayNameInput", profile.display_name || "");
+  setInputValue("circleUserEmailInput", profile.email || "");
+  setInputValue("circleUserRoleInput", profile.role || "staff");
+  setInputValue("circleUserActiveInput", profile.is_active ? "active" : "inactive");
+  if (title) title.textContent = "Edytuj użytkownika koła";
+  formBox?.classList.remove("hidden");
+}
+
 function hideCircleUserForm() {
-  appState.editingCircleUser = null;
+  appState.editingCircleUserSlot = null;
   document.getElementById("circleUserFormBox")?.classList.add("hidden");
+  setInputValue("circleUserSlotIdInput", "");
+  setInputValue("circleUserSlotNameInput", "");
   setInputValue("circleUserIdInput", "");
   setInputValue("circleUserUidInput", "");
   setInputValue("circleUserDisplayNameInput", "");
   setInputValue("circleUserEmailInput", "");
-  setInputValue("circleUserRoleInput", "circle_admin");
-  setInputValue("circleUserActiveInput", "true");
-  const uidInput = document.getElementById("circleUserUidInput");
-  if (uidInput) uidInput.disabled = false;
+  setInputValue("circleUserRoleInput", "staff");
+  setInputValue("circleUserActiveInput", "available");
 }
 
 async function handleCircleUserFormSubmit(event) {
@@ -4114,14 +4232,16 @@ async function handleCircleUserFormSubmit(event) {
     return;
   }
 
+  const slotId = document.getElementById("circleUserSlotIdInput")?.value.trim();
+  const slotName = document.getElementById("circleUserSlotNameInput")?.value.trim() || "Użytkownik";
   const userId = document.getElementById("circleUserUidInput")?.value.trim();
   const displayName = document.getElementById("circleUserDisplayNameInput")?.value.trim();
   const email = document.getElementById("circleUserEmailInput")?.value.trim();
   const role = document.getElementById("circleUserRoleInput")?.value;
-  const isActive = document.getElementById("circleUserActiveInput")?.value === "true";
+  const status = document.getElementById("circleUserActiveInput")?.value || "available";
 
-  if (!userId || !displayName) {
-    showToast("UID użytkownika i nazwa są wymagane.", "error");
+  if (!slotName) {
+    showToast("Nazwa miejsca jest wymagana.", "error");
     return;
   }
 
@@ -4130,28 +4250,65 @@ async function handleCircleUserFormSubmit(event) {
     return;
   }
 
-  const payload = {
-    user_id: userId,
+  if (status === "active" && (!userId || !displayName)) {
+    showToast("Do aktywacji potrzebny jest UID konta oraz nazwa użytkownika. Docelowo zastąpimy to zaproszeniem e-mail.", "error");
+    return;
+  }
+
+  if (userId) {
+    const payload = {
+      user_id: userId,
+      circle_id: circleId,
+      display_name: displayName || email || slotName,
+      email: email || null,
+      role,
+      is_active: status === "active"
+    };
+
+    const { error: profileError } = await appState.supabase
+      .from("profiles")
+      .upsert(payload, { onConflict: "user_id" });
+
+    if (profileError) {
+      console.error(profileError);
+      showToast("Nie udało się zapisać profilu użytkownika. Sprawdź UID i uprawnienia.", "error");
+      return;
+    }
+  }
+
+  const slotPayload = {
     circle_id: circleId,
-    display_name: displayName,
-    email: email || null,
-    role,
-    is_active: isActive
+    slot_name: slotName,
+    default_role: role,
+    assigned_user_id: userId || null,
+    assigned_email: email || null,
+    assigned_display_name: displayName || null,
+    status,
+    notes: status === "available" ? "Wolne miejsce do aktywacji przez administratora koła." : null
   };
 
-  const { error } = await appState.supabase
-    .from("profiles")
-    .upsert(payload, { onConflict: "user_id" });
+  let result;
+  if (slotId) {
+    result = await appState.supabase
+      .from("circle_user_slots")
+      .update({ ...slotPayload, updated_at: new Date().toISOString() })
+      .eq("id", slotId)
+      .eq("circle_id", circleId);
+  } else {
+    result = await appState.supabase
+      .from("circle_user_slots")
+      .insert(slotPayload);
+  }
 
-  if (error) {
-    console.error(error);
-    showToast("Nie udało się zapisać profilu użytkownika. Sprawdź UID i uprawnienia.", "error");
+  if (result.error) {
+    console.error(result.error);
+    showToast("Nie udało się zapisać miejsca użytkownika.", "error");
     return;
   }
 
   hideCircleUserForm();
   await loadCircleUsers();
-  showToast("Profil użytkownika został zapisany.");
+  showToast("Miejsce użytkownika zostało zapisane.");
 }
 
 function handleEditCircleUser(userId) {
@@ -4181,6 +4338,35 @@ async function handleToggleCircleUser(userId) {
 
   await loadCircleUsers();
   showToast(user.is_active ? "Użytkownik został zablokowany." : "Użytkownik został aktywowany.");
+}
+
+async function handleDeactivateCircleUserSlot(slotId) {
+  const slot = appState.circleUserSlots.find((item) => item.id === slotId);
+  if (!slot) return;
+
+  const nextStatus = slot.status === "active" ? "inactive" : "active";
+  const { error } = await appState.supabase
+    .from("circle_user_slots")
+    .update({ status: nextStatus, updated_at: new Date().toISOString() })
+    .eq("id", slotId)
+    .eq("circle_id", getActiveCircleId());
+
+  if (error) {
+    console.error(error);
+    showToast("Nie udało się zmienić statusu miejsca użytkownika.", "error");
+    return;
+  }
+
+  if (slot.assigned_user_id) {
+    await appState.supabase
+      .from("profiles")
+      .update({ is_active: nextStatus === "active", updated_at: new Date().toISOString() })
+      .eq("user_id", slot.assigned_user_id)
+      .eq("circle_id", getActiveCircleId());
+  }
+
+  await loadCircleUsers();
+  showToast(nextStatus === "active" ? "Miejsce zostało przywrócone." : "Miejsce zostało wyłączone.");
 }
 
 
@@ -4289,6 +4475,9 @@ window.switchToCircle = switchToCircle;
 window.toggleCircleStatus = toggleCircleStatus;
 window.handleEditCircleUser = handleEditCircleUser;
 window.handleToggleCircleUser = handleToggleCircleUser;
+window.handleActivateCircleUserSlot = handleActivateCircleUserSlot;
+window.handleEditCircleUserSlot = handleEditCircleUserSlot;
+window.handleDeactivateCircleUserSlot = handleDeactivateCircleUserSlot;
 
 
 function normalizeText(value) {

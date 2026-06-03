@@ -2147,3 +2147,16 @@ button.hidden,
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Miejsca użytkowników koła */
+.small-name {
+  font-size: 15px;
+}
+.users-table .status-pill.role-pill {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+.users-table td:nth-child(2) .table-note {
+  word-break: break-word;
+}

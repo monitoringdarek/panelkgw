@@ -1036,25 +1036,31 @@
               <div class="module-header compact-header">
                 <div>
                   <p class="eyebrow">Użytkownicy</p>
-                  <h3>Użytkownicy aktywnego koła</h3>
-                  <p>Podgląd użytkowników przypisanych do koła oraz zmiana ról i statusu profilu.</p>
+                  <h3>Dostępy użytkowników koła</h3>
+                  <p>Administrator koła ma aktywny dostęp oraz dwa miejsca do aktywacji dla dodatkowych osób.</p>
                 </div>
-                <button id="newCircleUserBtn" class="primary-btn" type="button">Dodaj profil użytkownika</button>
+                <button id="newCircleUserBtn" class="secondary-btn hidden" type="button">Dodaj miejsce</button>
               </div>
 
               <div id="circleUserFormBox" class="form-box hidden">
-                <h3 id="circleUserFormTitle">Dodaj profil użytkownika</h3>
+                <h3 id="circleUserFormTitle">Aktywuj użytkownika</h3>
                 <form id="circleUserForm" class="data-form">
                   <input id="circleUserIdInput" type="hidden" />
+                  <input id="circleUserSlotIdInput" type="hidden" />
                   <div class="form-grid">
                     <label>
-                      UID użytkownika z Supabase Auth
-                      <input id="circleUserUidInput" type="text" required placeholder="np. 0d16e490-..." />
-                      <small class="field-help">Najpierw utwórz konto w Supabase Authentication, potem wklej tutaj UID.</small>
+                      Miejsce
+                      <input id="circleUserSlotNameInput" type="text" required />
+                      <small class="field-help">Np. Administrator koła, Użytkownik 1, Użytkownik 2.</small>
                     </label>
                     <label>
                       Nazwa / imię
-                      <input id="circleUserDisplayNameInput" type="text" required />
+                      <input id="circleUserDisplayNameInput" type="text" />
+                    </label>
+                    <label>
+                      UID konta użytkownika
+                      <input id="circleUserUidInput" type="text" placeholder="np. 0d16e490-..." />
+                      <small class="field-help">Tymczasowo: UID z Supabase Auth. Docelowo zastąpimy to zaproszeniem e-mail.</small>
                     </label>
                     <label>
                       E-mail
@@ -1071,20 +1077,22 @@
                     <label>
                       Status
                       <select id="circleUserActiveInput">
-                        <option value="true">Aktywny</option>
-                        <option value="false">Zablokowany</option>
+                        <option value="available">Do aktywacji</option>
+                        <option value="active">Aktywny</option>
+                        <option value="inactive">Nieaktywny</option>
+                        <option value="invited">Zaproszony</option>
                       </select>
                     </label>
                   </div>
                   <div class="form-actions">
-                    <button type="submit" class="primary-btn">Zapisz profil</button>
+                    <button type="submit" class="primary-btn">Zapisz miejsce</button>
                     <button id="cancelCircleUserBtn" type="button" class="secondary-btn">Anuluj</button>
                   </div>
                 </form>
               </div>
 
               <div class="list-toolbar">
-                <p class="muted">Konta logowania tworzymy w Supabase Auth. Tutaj przypisujemy je do koła i nadajemy rolę.</p>
+                <p class="muted">Standardowo koło ma: Administrator koła + Użytkownik 1 + Użytkownik 2. Wolne miejsca są przygotowane do aktywacji.</p>
                 <div class="toolbar-actions">
                   <button id="refreshCircleUsersBtn" class="secondary-btn" type="button">Odśwież</button>
                   <span id="circleUsersCountLabel">0 użytkowników</span>
@@ -1095,8 +1103,8 @@
                 <table class="data-table users-table">
                   <thead>
                     <tr>
+                      <th>Miejsce</th>
                       <th>Użytkownik</th>
-                      <th>E-mail</th>
                       <th>Rola</th>
                       <th>Status</th>
                       <th class="actions-cell">Akcje</th>
