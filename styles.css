@@ -2534,3 +2534,89 @@ body {
     border-radius: 22px;
   }
 }
+
+
+/* =========================================================
+   v2026.06.03-21b — stały dół menu bocznego
+   Odśwież stronę i Wyloguj pozostają widoczne na dole sidebaru.
+   ========================================================= */
+
+@media (min-width: 701px) {
+  .panel {
+    display: grid !important;
+    grid-template-columns: 280px minmax(0, 1fr) !important;
+    align-items: stretch !important;
+    min-height: 100vh !important;
+  }
+
+  .sidebar {
+    height: 100vh !important;
+    min-height: 100vh !important;
+    max-height: 100vh !important;
+    position: sticky !important;
+    top: 0 !important;
+    align-self: start !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 16px !important;
+    padding: 18px 22px !important;
+    border-right: 1px solid var(--line) !important;
+    border-bottom: 0 !important;
+  }
+
+  .sidebar-brand {
+    flex: 0 0 auto !important;
+  }
+
+  .sidebar-nav {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    align-content: start !important;
+    gap: 8px !important;
+    padding-right: 4px !important;
+  }
+
+  .sidebar-bottom {
+    flex: 0 0 auto !important;
+    margin-top: 0 !important;
+    padding-top: 12px !important;
+    border-top: 1px solid rgba(229, 223, 209, 0.85) !important;
+    display: grid !important;
+    gap: 10px !important;
+    background: linear-gradient(180deg, rgba(251, 250, 246, 0.35), rgba(251, 250, 246, 0.98)) !important;
+  }
+
+  .content {
+    min-width: 0 !important;
+  }
+}
+
+@media (max-width: 700px) {
+  .panel {
+    grid-template-columns: 1fr !important;
+  }
+
+  .sidebar {
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    position: static !important;
+    overflow: visible !important;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--line) !important;
+  }
+
+  .sidebar-nav {
+    overflow: visible !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .sidebar-bottom {
+    margin-top: 12px !important;
+  }
+}
