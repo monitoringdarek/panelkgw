@@ -1964,3 +1964,186 @@ button.hidden,
     font-size: 24px;
   }
 }
+
+
+/* =========================================================
+   LOGO KOŁA
+   ========================================================= */
+
+.logo-mark,
+.circle-logo-large,
+.circle-logo-preview,
+.circle-mini-logo {
+  overflow: hidden;
+}
+
+.logo-mark img,
+.circle-logo-large img,
+.circle-logo-preview img,
+.circle-mini-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.logo-mark.has-logo,
+.circle-logo-large.has-logo,
+.circle-logo-preview.has-logo,
+.circle-mini-logo.has-logo {
+  background: #fff;
+  border: 1px solid var(--line);
+  color: transparent;
+}
+
+.welcome-main {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.circle-logo-large {
+  width: 86px;
+  height: 86px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: 950;
+  font-size: 22px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+}
+
+.logo-admin-box {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--card-soft);
+}
+
+.circle-logo-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 24px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: 950;
+  font-size: 22px;
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+.circle-table-name {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.circle-mini-logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-weight: 900;
+  font-size: 12px;
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
+
+/* =========================================================
+   POMOC
+   ========================================================= */
+
+.help-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0;
+}
+
+.help-tab {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card-soft);
+  color: var(--accent-dark);
+  padding: 10px 14px;
+  cursor: pointer;
+  font-weight: 850;
+}
+
+.help-tab.active,
+.help-tab:hover {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.help-panel {
+  display: none;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: #fff;
+  padding: 22px;
+}
+
+.active-help-panel {
+  display: block;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.help-grid article,
+.updates-list article {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--card-soft);
+}
+
+.help-grid h4,
+.updates-list p {
+  margin-bottom: 0;
+}
+
+.help-contact-details {
+  margin: 18px 0;
+}
+
+.updates-list {
+  display: grid;
+  gap: 12px;
+}
+
+.updates-list article strong {
+  color: var(--accent-dark);
+}
+
+@media (max-width: 760px) {
+  .welcome-main,
+  .logo-admin-box,
+  .circle-table-name {
+    align-items: flex-start;
+  }
+
+  .welcome-main,
+  .logo-admin-box {
+    flex-direction: column;
+  }
+
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
+}

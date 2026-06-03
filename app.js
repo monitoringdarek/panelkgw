@@ -57,6 +57,7 @@ function setupVersionLabels() {
   setText("sidebarVersion", version);
   setText("adminVersion", version);
   setText("superAdminVersion", version);
+  setText("helpVersion", version);
 }
 
 function setupSupabase() {
@@ -117,6 +118,9 @@ function setupEvents() {
   const circleUserForm = document.getElementById("circleUserForm");
   const cancelCircleUserBtn = document.getElementById("cancelCircleUserBtn");
   const refreshCircleUsersBtn = document.getElementById("refreshCircleUsersBtn");
+  const uploadCircleLogoBtn = document.getElementById("uploadCircleLogoBtn");
+  const removeCircleLogoBtn = document.getElementById("removeCircleLogoBtn");
+  const circleLogoUploadInput = document.getElementById("circleLogoUploadInput");
 
   loginForm?.addEventListener("submit", handleLogin);
   logoutBtn?.addEventListener("click", handleLogout);
@@ -160,6 +164,13 @@ function setupEvents() {
   circleUserForm?.addEventListener("submit", handleCircleUserFormSubmit);
   cancelCircleUserBtn?.addEventListener("click", hideCircleUserForm);
   refreshCircleUsersBtn?.addEventListener("click", loadCircleUsers);
+  uploadCircleLogoBtn?.addEventListener("click", triggerCircleLogoUpload);
+  removeCircleLogoBtn?.addEventListener("click", removeCircleLogo);
+  circleLogoUploadInput?.addEventListener("change", handleCircleLogoSelected);
+
+  document.querySelectorAll(".help-tab").forEach((btn) => {
+    btn.addEventListener("click", () => showHelpTab(btn.dataset.helpTab));
+  });
 
   const newFinanceEntryBtn = document.getElementById("newFinanceEntryBtn");
   const refreshFinanceBtn = document.getElementById("refreshFinanceBtn");
@@ -400,7 +411,7 @@ async function loadAvailableCircles() {
   if (isSuperAdmin()) {
     const { data, error } = await appState.supabase
       .from("circles")
-      .select("id, name, short_name, status, membership_fee_amount, storage_limit_mb, contact_email, contact_phone, notes")
+      .select("id, name, short_name, status, membership_fee_amount, storage_limit_mb, logo_url, contact_email, contact_phone, notes")
       .order("name", { ascending: true });
 
     if (error) {
@@ -421,7 +432,7 @@ async function loadAvailableCircles() {
 
   const { data, error } = await appState.supabase
     .from("circles")
-    .select("id, name, short_name, status, membership_fee_amount, storage_limit_mb, contact_email, contact_phone, notes")
+    .select("id, name, short_name, status, membership_fee_amount, storage_limit_mb, logo_url, contact_email, contact_phone, notes")
     .eq("id", appState.profile.circle_id)
     .single();
 
@@ -489,6 +500,7 @@ function renderUserInfo() {
   setText("userRole", "Administrator");
   setText("adminRole", roleLabel(profile?.role));
   setText("adminCircleId", getActiveCircleId() || "Brak aktywnego koła");
+  renderCircleLogos();
   updatePermissionUi();
 }
 
@@ -1491,6 +1503,10 @@ function openPrintReport({ title, subtitle = "", headers, rows, numericColumns =
   const safeTitle = escapeHtml(title);
   const safeCircle = escapeHtml(circleName);
   const safeSubtitle = escapeHtml(subtitle);
+  const logoUrl = getLogoUrl(getCircleLogoPath(circle));
+  const logoHtml = logoUrl
+    ? `<img class="print-logo" src="${escapeHtml(logoUrl)}" alt="Logo koła" />`
+    : `<div class="print-logo print-logo-fallback">${escapeHtml(circleInitials(circle))}</div>`;
 
   const headerHtml = headers
     .map((header, index) => `<th class="${numericColumns.includes(index) ? "numeric" : ""}">${escapeHtml(header)}</th>`)
@@ -1537,6 +1553,32 @@ function openPrintReport({ title, subtitle = "", headers, rows, numericColumns =
           border-bottom: 2px solid #6f8f72;
           padding-bottom: 10px;
           margin-bottom: 14px;
+        }
+
+        .print-title-wrap {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+        }
+
+        .print-logo {
+          width: 54px;
+          height: 54px;
+          object-fit: contain;
+          border: 1px solid #d8d1c2;
+          border-radius: 14px;
+          background: #fbfaf6;
+          padding: 4px;
+          flex: 0 0 auto;
+        }
+
+        .print-logo-fallback {
+          display: grid;
+          place-items: center;
+          color: #4f6f55;
+          font-weight: 900;
+          font-size: 14px;
+          padding: 0;
         }
 
         .brand {
@@ -1612,10 +1654,13 @@ function openPrintReport({ title, subtitle = "", headers, rows, numericColumns =
     </head>
     <body>
       <div class="print-header">
-        <div>
-          <div class="brand">Panel KGW</div>
-          <h1>${safeTitle}</h1>
-          <div>${safeCircle}</div>
+        <div class="print-title-wrap">
+          ${logoHtml}
+          <div>
+            <div class="brand">Panel KGW</div>
+            <h1>${safeTitle}</h1>
+            <div>${safeCircle}</div>
+          </div>
         </div>
         <div class="meta">
           Data wydruku:<br />
@@ -3201,8 +3246,13 @@ function renderStorageLimitsList() {
     return `
       <tr>
         <td>
-          <span class="member-name">${escapeHtml(circle.name)}</span>
-          ${circle.short_name ? `<span class="table-note">${escapeHtml(circle.short_name)}</span>` : ""}
+          <div class="circle-table-name">
+            <span class="circle-table-logo">${circleLogoHtml(circle)}</span>
+            <span>
+              <span class="member-name">${escapeHtml(circle.name)}</span>
+              ${circle.short_name ? `<span class="table-note">${escapeHtml(circle.short_name)}</span>` : ""}
+            </span>
+          </div>
         </td>
         <td>${formatBytes(usedBytes)}</td>
         <td>${limitMb} MB</td>
@@ -3776,6 +3826,7 @@ function showActiveCircleForm() {
   setInputValue("circleEmailInput", circle.contact_email || "");
   setInputValue("circlePhoneInput", circle.contact_phone || "");
   setInputValue("circleNotesInput", circle.notes || "");
+  renderLogoPreview("activeCircleLogoPreview", circle?.logo_url, circle?.short_name || circle?.name || "KGW");
 
   document.getElementById("activeCircleFormBox")?.classList.remove("hidden");
 }
@@ -4156,8 +4207,13 @@ function renderCirclesList() {
     return `
       <tr class="${isActive ? "selected-row" : ""}">
         <td>
-          <span class="member-name">${escapeHtml(circle.name)}</span>
-          ${circle.short_name ? `<span class="table-note">${escapeHtml(circle.short_name)}</span>` : ""}
+          <div class="circle-table-name">
+            <span class="circle-table-logo">${circleLogoHtml(circle)}</span>
+            <span>
+              <span class="member-name">${escapeHtml(circle.name)}</span>
+              ${circle.short_name ? `<span class="table-note">${escapeHtml(circle.short_name)}</span>` : ""}
+            </span>
+          </div>
         </td>
         <td><span class="status-pill ${circleStatusClass(circle.status)}">${statusText}</span></td>
         <td class="amount-cell">${formatMoney(circle.membership_fee_amount || 0)}</td>
@@ -4271,6 +4327,229 @@ function showPanel() {
   document.getElementById("panelView").classList.remove("hidden");
   showView("dashboard");
 }
+
+
+// =========================================================
+// LOGO KOŁA
+// =========================================================
+
+function getCircleLogoPath(circle = getActiveCircle()) {
+  return circle?.logo_url || "";
+}
+
+function getLogoUrl(logoPath) {
+  if (!logoPath) return "";
+  if (/^https?:\/\//i.test(logoPath)) return logoPath;
+
+  try {
+    const { data } = appState.supabase
+      .storage
+      .from("logos")
+      .getPublicUrl(logoPath);
+
+    return data?.publicUrl || "";
+  } catch {
+    return "";
+  }
+}
+
+function circleInitials(circle = getActiveCircle()) {
+  const source = (circle?.short_name || circle?.name || "KGW").trim();
+  if (!source) return "KGW";
+
+  const words = source.split(/\s+/).filter(Boolean);
+  if (words.length === 1) return words[0].slice(0, 3).toUpperCase();
+
+  return words
+    .slice(0, 3)
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase();
+}
+
+function renderLogoPreview(elementId, logoPath, fallbackText = "KGW") {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  const url = getLogoUrl(logoPath);
+
+  if (url) {
+    el.innerHTML = `<img src="${escapeHtml(url)}" alt="Logo koła" />`;
+    el.classList.add("has-logo");
+  } else {
+    el.textContent = String(fallbackText || "KGW").slice(0, 6);
+    el.classList.remove("has-logo");
+  }
+}
+
+function renderCircleLogos() {
+  const circle = getActiveCircle();
+  const logoPath = getCircleLogoPath(circle);
+  const fallback = circleInitials(circle);
+
+  renderLogoPreview("sidebarLogoMark", logoPath, fallback);
+  renderLogoPreview("dashboardLogoBox", logoPath, fallback);
+  renderLogoPreview("activeCircleLogoPreview", logoPath, fallback);
+}
+
+function circleLogoHtml(circle) {
+  const logoPath = getCircleLogoPath(circle);
+  const url = getLogoUrl(logoPath);
+  const fallback = circleInitials(circle);
+
+  if (url) {
+    return `<span class="circle-mini-logo has-logo"><img src="${escapeHtml(url)}" alt="Logo koła" /></span>`;
+  }
+
+  return `<span class="circle-mini-logo">${escapeHtml(fallback)}</span>`;
+}
+
+function triggerCircleLogoUpload() {
+  if (!canManageCircleSettings()) {
+    showToast("Brak uprawnień do zmiany logo koła.", "error");
+    return;
+  }
+
+  const input = document.getElementById("circleLogoUploadInput");
+  if (!input) return;
+  input.value = "";
+  input.click();
+}
+
+async function handleCircleLogoSelected(event) {
+  const file = event.target.files?.[0];
+  if (!file) return;
+
+  const circleId = getActiveCircleId();
+  const circle = getActiveCircle();
+
+  if (!circleId || !circle) {
+    showToast("Brak aktywnego koła.", "error");
+    return;
+  }
+
+  if (!canManageCircleSettings()) {
+    showToast("Brak uprawnień do zmiany logo koła.", "error");
+    return;
+  }
+
+  const allowedTypes = ["image/png", "image/jpeg", "image/webp"];
+  if (!allowedTypes.includes(file.type)) {
+    showToast("Logo musi być plikiem PNG, JPG albo WEBP.", "error");
+    event.target.value = "";
+    return;
+  }
+
+  const maxBytes = 1024 * 1024;
+  if (file.size > maxBytes) {
+    showToast("Logo jest za duże. Maksymalny rozmiar to 1 MB.", "error");
+    event.target.value = "";
+    return;
+  }
+
+  const oldLogoPath = getCircleLogoPath(circle);
+  const safeFileName = sanitizeFileName(file.name);
+  const storagePath = `${circleId}/logo-${Date.now()}-${crypto.randomUUID()}-${safeFileName}`;
+
+  const { error: uploadError } = await appState.supabase
+    .storage
+    .from("logos")
+    .upload(storagePath, file, {
+      cacheControl: "3600",
+      upsert: false
+    });
+
+  if (uploadError) {
+    console.error(uploadError);
+    showToast("Nie udało się wgrać logo. Sprawdź bucket logos i polityki dostępu.", "error");
+    event.target.value = "";
+    return;
+  }
+
+  const { error: updateError } = await appState.supabase
+    .from("circles")
+    .update({ logo_url: storagePath })
+    .eq("id", circleId);
+
+  if (updateError) {
+    console.error(updateError);
+    showToast("Logo zostało wgrane, ale nie udało się zapisać go w danych koła.", "error");
+    event.target.value = "";
+    return;
+  }
+
+  if (oldLogoPath && oldLogoPath !== storagePath && !/^https?:\/\//i.test(oldLogoPath)) {
+    await appState.supabase.storage.from("logos").remove([oldLogoPath]);
+  }
+
+  await loadAvailableCircles();
+  appState.circle = getActiveCircle();
+  renderUserInfo();
+  renderSuperAdminUi();
+  showToast("Logo koła zostało zapisane.");
+  event.target.value = "";
+}
+
+async function removeCircleLogo() {
+  const circleId = getActiveCircleId();
+  const circle = getActiveCircle();
+  const oldLogoPath = getCircleLogoPath(circle);
+
+  if (!circleId || !circle) {
+    showToast("Brak aktywnego koła.", "error");
+    return;
+  }
+
+  if (!oldLogoPath) {
+    showToast("To koło nie ma jeszcze logo.", "info");
+    return;
+  }
+
+  const { error } = await appState.supabase
+    .from("circles")
+    .update({ logo_url: null })
+    .eq("id", circleId);
+
+  if (error) {
+    console.error(error);
+    showToast("Nie udało się usunąć logo.", "error");
+    return;
+  }
+
+  if (!/^https?:\/\//i.test(oldLogoPath)) {
+    await appState.supabase.storage.from("logos").remove([oldLogoPath]);
+  }
+
+  await loadAvailableCircles();
+  appState.circle = getActiveCircle();
+  renderUserInfo();
+  renderSuperAdminUi();
+  showToast("Logo koła zostało usunięte.");
+}
+
+// =========================================================
+// POMOC
+// =========================================================
+
+function showHelpTab(tabName = "instruction") {
+  document.querySelectorAll(".help-tab").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.helpTab === tabName);
+  });
+
+  document.querySelectorAll(".help-panel").forEach((panel) => {
+    panel.classList.remove("active-help-panel");
+  });
+
+  const mapping = {
+    instruction: "helpInstruction",
+    contact: "helpContact",
+    updates: "helpUpdates",
+    about: "helpAbout"
+  };
+
+  document.getElementById(mapping[tabName] || "helpInstruction")?.classList.add("active-help-panel");
+}
+
 
 function showView(viewName) {
   if (viewName === "superAdmin" && !isSuperAdmin()) {

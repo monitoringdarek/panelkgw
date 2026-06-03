@@ -61,7 +61,7 @@
     <main id="panelView" class="panel hidden">
       <aside class="sidebar">
         <div class="sidebar-brand">
-          <div class="logo-mark">KGW</div>
+          <div id="sidebarLogoMark" class="logo-mark">KGW</div>
           <div>
             <strong>Panel KGW</strong>
             <small id="sidebarVersion"></small>
@@ -75,6 +75,7 @@
           <button class="nav-btn" data-view="finance">Finanse</button>
           <button class="nav-btn" data-view="culinary">Kulinarne wspomnienia</button>
           <button class="nav-btn" data-view="documents">Dokumenty</button>
+          <button class="nav-btn" data-view="help">Pomoc</button>
           <button class="nav-btn" data-view="admin">Administracja</button>
           <button id="superAdminNavBtn" class="nav-btn hidden" data-view="superAdmin">Super Admin</button>
         </nav>
@@ -113,13 +114,15 @@
         <!-- PULPIT -->
         <section id="dashboardView" class="view active-view">
           <div class="welcome-card">
-            <div>
-              <p class="eyebrow">Pulpit</p>
-              <h2>Witaj w Panelu KGW</h2>
-              <p>
-                To jest pierwsza lekka wersja systemu. Sprawdzamy logowanie,
-                połączenie z Supabase i podstawowe dane koła.
-              </p>
+            <div class="welcome-main">
+              <div id="dashboardLogoBox" class="circle-logo-large">KGW</div>
+              <div>
+                <p class="eyebrow">Pulpit</p>
+                <h2>Witaj w Panelu KGW</h2>
+                <p>
+                  To jest lekka wersja systemu dla kół. Wszystkie najważniejsze dane koła są w jednym miejscu.
+                </p>
+              </div>
             </div>
             <button id="refreshDashboardBtn" class="secondary-btn">Odśwież dane</button>
           </div>
@@ -838,6 +841,106 @@
           </div>
         </section>
 
+
+        <section id="helpView" class="view">
+          <div class="module-card">
+            <p class="eyebrow">Pomoc</p>
+            <h2>Pomoc i informacje</h2>
+            <p>Krótka instrukcja obsługi, kontakt z administratorem, opis zmian i informacje o programie.</p>
+
+            <div class="help-tabs">
+              <button class="help-tab active" data-help-tab="instruction" type="button">Instrukcja</button>
+              <button class="help-tab" data-help-tab="contact" type="button">Kontakt</button>
+              <button class="help-tab" data-help-tab="updates" type="button">Uaktualnienia</button>
+              <button class="help-tab" data-help-tab="about" type="button">O programie</button>
+            </div>
+
+            <div id="helpInstruction" class="help-panel active-help-panel">
+              <h3>Instrukcja — pierwsze kroki</h3>
+              <div class="help-grid">
+                <article>
+                  <h4>1. Członkowie</h4>
+                  <p>Wejdź w „Członkowie”, kliknij „Nowy członek” i uzupełnij podstawowe dane osoby.</p>
+                </article>
+                <article>
+                  <h4>2. Składki</h4>
+                  <p>Wybierz rok, miesiąc, kwotę i kliknij „Wygeneruj składki dla aktywnych członków”. System sam utworzy zaległości.</p>
+                </article>
+                <article>
+                  <h4>3. Opłacenie składki</h4>
+                  <p>Przy zaległej składce kliknij „Oznacz jako zapłacone”. Wpływ automatycznie pojawi się w Finansach.</p>
+                </article>
+                <article>
+                  <h4>4. Dokumenty</h4>
+                  <p>Dodaj dokument i kliknij „Dodaj plik”, aby wgrać PDF, zdjęcie lub inny załącznik.</p>
+                </article>
+                <article>
+                  <h4>5. Eksport i druk</h4>
+                  <p>W Członkach, Składkach i Finansach użyj „Eksport Excel” albo „Drukuj”, aby przygotować zestawienie.</p>
+                </article>
+                <article>
+                  <h4>6. Kulinarne wspomnienia</h4>
+                  <p>Dodaj wydarzenie, a potem potrawy. Długie przepisy są dostępne przez przycisk „Szczegóły”.</p>
+                </article>
+              </div>
+            </div>
+
+            <div id="helpContact" class="help-panel">
+              <h3>Kontakt z administratorem</h3>
+              <p>W razie problemów z panelem, logowaniem albo dostępem do konta skontaktuj się z administratorem programu.</p>
+              <div class="contact-details help-contact-details">
+                <div>
+                  <span>Telefon</span>
+                  <strong>501 608 693</strong>
+                </div>
+                <div>
+                  <span>E-mail</span>
+                  <strong>dariuszwawrzynek@gmail.com</strong>
+                </div>
+                <div>
+                  <span>Preferowany kontakt</span>
+                  <strong>Telefoniczny</strong>
+                </div>
+              </div>
+              <div class="form-actions">
+                <a class="primary-btn contact-action" href="tel:+48501608693">Zadzwoń</a>
+                <a class="secondary-btn contact-action" href="mailto:dariuszwawrzynek@gmail.com">Napisz e-mail</a>
+              </div>
+            </div>
+
+            <div id="helpUpdates" class="help-panel">
+              <h3>Uaktualnienia — opis zmian</h3>
+              <div class="updates-list">
+                <article><strong>v2026.06.03-12</strong><p>Dodano logo koła oraz zakładkę Pomoc.</p></article>
+                <article><strong>v2026.06.03-11</strong><p>Dodano druk i zapis PDF dla członków, składek i finansów.</p></article>
+                <article><strong>v2026.06.03-10</strong><p>Dodano eksport Excel dla finansów.</p></article>
+                <article><strong>v2026.06.03-09</strong><p>Dodano eksport Excel dla członków i składek.</p></article>
+                <article><strong>v2026.06.03-08</strong><p>Dodano limit miejsca na dokumenty i licznik wykorzystania przestrzeni.</p></article>
+                <article><strong>v2026.06.03-07</strong><p>Dodano osobną zakładkę Super Admin do zarządzania kołami.</p></article>
+              </div>
+            </div>
+
+            <div id="helpAbout" class="help-panel">
+              <h3>O programie</h3>
+              <div class="admin-info">
+                <div>
+                  <span>Nazwa</span>
+                  <strong>Panel KGW</strong>
+                </div>
+                <div>
+                  <span>Wersja</span>
+                  <strong id="helpVersion"></strong>
+                </div>
+                <div>
+                  <span>Przeznaczenie</span>
+                  <strong>Panel dla Kół Gospodyń Wiejskich</strong>
+                </div>
+              </div>
+              <p class="muted">Program pomaga prowadzić członków, składki, finanse, dokumenty i kulinarne wspomnienia koła w jednym miejscu.</p>
+            </div>
+          </div>
+        </section>
+
         <section id="adminView" class="view">
           <div class="module-card">
             <p class="eyebrow">Moduł</p>
@@ -876,6 +979,18 @@
 
               <div id="activeCircleFormBox" class="form-box hidden">
                 <form id="activeCircleForm" class="data-form">
+                  <div class="logo-admin-box">
+                    <div id="activeCircleLogoPreview" class="circle-logo-preview">KGW</div>
+                    <div>
+                      <strong>Logo koła</strong>
+                      <p class="muted">Logo będzie widoczne w panelu, w menu i na wydrukach.</p>
+                      <div class="form-actions">
+                        <button id="uploadCircleLogoBtn" type="button" class="secondary-btn">Dodaj / Zmień logo</button>
+                        <button id="removeCircleLogoBtn" type="button" class="secondary-btn">Usuń logo</button>
+                      </div>
+                    </div>
+                  </div>
+                  <input id="circleLogoUploadInput" class="hidden" type="file" accept="image/png,image/jpeg,image/webp" />
                   <div class="form-grid">
                     <label>
                       Nazwa koła
