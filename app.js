@@ -58,6 +58,8 @@ function setupVersionLabels() {
   const version = config.APP_VERSION || "";
 
   setText("loginVersion", version);
+  setText("forgotVersion", version);
+  setText("resetVersion", version);
   setText("sidebarVersion", version);
   setText("adminVersion", version);
   setText("superAdminVersion", version);
@@ -83,6 +85,10 @@ function setupSupabase() {
 
 function setupEvents() {
   const loginForm = document.getElementById("loginForm");
+  const forgotPasswordLink = document.getElementById("forgotPasswordLink");
+  const forgotPasswordForm = document.getElementById("forgotPasswordForm");
+  const backToLoginBtn = document.getElementById("backToLoginBtn");
+  const resetPasswordForm = document.getElementById("resetPasswordForm");
   const logoutBtn = document.getElementById("logoutBtn");
   const refreshDashboardBtn = document.getElementById("refreshDashboardBtn");
   const newMemberBtn = document.getElementById("newMemberBtn");
@@ -131,6 +137,10 @@ function setupEvents() {
   const circleLogoUploadInput = document.getElementById("circleLogoUploadInput");
 
   loginForm?.addEventListener("submit", handleLogin);
+  forgotPasswordLink?.addEventListener("click", () => showLoginMode("forgot"));
+  forgotPasswordForm?.addEventListener("submit", handleForgotPasswordSubmit);
+  backToLoginBtn?.addEventListener("click", () => showLoginMode("login"));
+  resetPasswordForm?.addEventListener("submit", handleResetPasswordSubmit);
   logoutBtn?.addEventListener("click", handleLogout);
   refreshDashboardBtn?.addEventListener("click", loadDashboardStats);
   newMemberBtn?.addEventListener("click", () => showMemberForm());
@@ -294,6 +304,9 @@ function setupEvents() {
 async function checkExistingSession() {
   if (!appState.supabase) return;
 
+  const isRecovery = await handlePasswordRecoveryFromUrl();
+  if (isRecovery) return;
+
   const { data, error } = await appState.supabase.auth.getSession();
 
   if (error) {
@@ -339,6 +352,113 @@ async function handleLogin(event) {
 
   await loadProfileAndCircle();
   showPanel();
+}
+
+async function handleForgotPasswordSubmit(event) {
+  event.preventDefault();
+
+  const email = document.getElementById("forgotPasswordEmail")?.value.trim();
+
+  if (!email) {
+    setText("forgotPasswordMessage", "Wpisz adres e-mail.");
+    return;
+  }
+
+  const redirectTo = getAuthRedirectUrl();
+  const { error } = await appState.supabase.auth.resetPasswordForEmail(email, {
+    redirectTo
+  });
+
+  if (error) {
+    console.error(error);
+    setText("forgotPasswordMessage", "Nie udało się wysłać linku resetującego. Spróbuj później.");
+    showToast("Nie udało się wysłać linku resetującego. Możliwe, że przekroczono limit wiadomości e-mail.", "error");
+    return;
+  }
+
+  setText("forgotPasswordMessage", "Jeśli konto istnieje, na podany adres wysłano link do ustawienia hasła.");
+  showToast("Wysłano link do ustawienia hasła. Sprawdź skrzynkę e-mail.", "success");
+}
+
+async function handleResetPasswordSubmit(event) {
+  event.preventDefault();
+
+  const password = document.getElementById("newPassword")?.value || "";
+  const repeat = document.getElementById("newPasswordRepeat")?.value || "";
+
+  if (password.length < 6) {
+    setText("resetPasswordMessage", "Hasło musi mieć co najmniej 6 znaków.");
+    return;
+  }
+
+  if (password !== repeat) {
+    setText("resetPasswordMessage", "Hasła nie są takie same.");
+    return;
+  }
+
+  const { error } = await appState.supabase.auth.updateUser({ password });
+
+  if (error) {
+    console.error(error);
+    setText("resetPasswordMessage", "Nie udało się zapisać nowego hasła. Użyj najnowszego linku z e-maila.");
+    showToast("Nie udało się zapisać nowego hasła.", "error");
+    return;
+  }
+
+  setInputValue("newPassword", "");
+  setInputValue("newPasswordRepeat", "");
+  setText("resetPasswordMessage", "Hasło zostało zmienione. Możesz się zalogować.");
+  showToast("Hasło zostało zmienione. Możesz się zalogować.", "success");
+
+  await appState.supabase.auth.signOut();
+  window.history.replaceState({}, document.title, getCleanAppPath());
+  showLoginMode("login");
+}
+
+async function handlePasswordRecoveryFromUrl() {
+  const searchParams = new URLSearchParams(window.location.search || "");
+  const hashParams = new URLSearchParams((window.location.hash || "").replace(/^#/, ""));
+
+  const type = searchParams.get("type") || hashParams.get("type");
+  const accessToken = hashParams.get("access_token") || searchParams.get("access_token");
+  const refreshToken = hashParams.get("refresh_token") || searchParams.get("refresh_token");
+  const code = searchParams.get("code");
+
+  const looksLikeRecovery = type === "recovery" || Boolean(accessToken && refreshToken) || Boolean(code);
+  if (!looksLikeRecovery) return false;
+
+  try {
+    if (accessToken && refreshToken) {
+      const { error } = await appState.supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken
+      });
+      if (error) throw error;
+    } else if (code) {
+      const { error } = await appState.supabase.auth.exchangeCodeForSession(code);
+      if (error) throw error;
+    }
+
+    window.history.replaceState({}, document.title, getCleanAppPath());
+    showLogin();
+    showLoginMode("reset");
+    return true;
+  } catch (error) {
+    console.error(error);
+    window.history.replaceState({}, document.title, getCleanAppPath());
+    showLogin();
+    showLoginMode("forgot");
+    showToast("Link resetowania hasła jest nieprawidłowy albo wygasł. Wyślij nowy link.", "error");
+    return true;
+  }
+}
+
+function getAuthRedirectUrl() {
+  return `${window.location.origin}${getCleanAppPath()}`;
+}
+
+function getCleanAppPath() {
+  return window.location.pathname || "/";
 }
 
 async function handleLogout() {
@@ -4933,6 +5053,31 @@ function escapeHtml(value) {
 function showLogin() {
   document.getElementById("loginView").classList.remove("hidden");
   document.getElementById("panelView").classList.add("hidden");
+  showLoginMode("login");
+}
+
+function showLoginMode(mode) {
+  const loginForm = document.getElementById("loginForm");
+  const forgotForm = document.getElementById("forgotPasswordForm");
+  const resetForm = document.getElementById("resetPasswordForm");
+
+  loginForm?.classList.toggle("hidden", mode !== "login");
+  forgotForm?.classList.toggle("hidden", mode !== "forgot");
+  resetForm?.classList.toggle("hidden", mode !== "reset");
+
+  clearLoginError();
+  setText("forgotPasswordMessage", "");
+  setText("resetPasswordMessage", "");
+
+  if (mode === "forgot") {
+    const loginEmail = document.getElementById("loginEmail")?.value.trim();
+    if (loginEmail) setInputValue("forgotPasswordEmail", loginEmail);
+    document.getElementById("forgotPasswordEmail")?.focus();
+  }
+
+  if (mode === "reset") {
+    document.getElementById("newPassword")?.focus();
+  }
 }
 
 function showPanel() {

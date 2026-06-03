@@ -2160,3 +2160,45 @@ button.hidden,
 .users-table td:nth-child(2) .table-note {
   word-break: break-word;
 }
+
+/* =========================================================
+   v2026.06.03-16 — reset hasła
+   ========================================================= */
+
+.login-right {
+  background: #fff;
+  border-left: 1px solid var(--line);
+  display: grid;
+}
+
+.login-right .login-form {
+  border-left: 0;
+}
+
+.text-btn {
+  margin-top: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--accent-dark);
+  font-weight: 850;
+  text-align: center;
+  cursor: pointer;
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+.text-btn:hover {
+  background: var(--accent-soft);
+}
+
+.login-secondary-action {
+  margin-top: 10px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .login-right {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}

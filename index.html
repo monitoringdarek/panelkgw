@@ -32,28 +32,73 @@
           </div>
         </div>
 
-        <form id="loginForm" class="login-form">
-          <h2>Zaloguj się</h2>
-          <p class="muted">Wpisz e-mail i hasło do panelu.</p>
+        <div class="login-right">
+          <form id="loginForm" class="login-form">
+            <h2>Zaloguj się</h2>
+            <p class="muted">Wpisz e-mail i hasło do panelu.</p>
 
-          <label>
-            E-mail
-            <input id="loginEmail" type="email" autocomplete="email" required />
-          </label>
+            <label>
+              E-mail
+              <input id="loginEmail" type="email" autocomplete="email" required />
+            </label>
 
-          <label>
-            Hasło
-            <input id="loginPassword" type="password" autocomplete="current-password" required />
-          </label>
+            <label>
+              Hasło
+              <input id="loginPassword" type="password" autocomplete="current-password" required />
+            </label>
 
-          <button type="submit" class="primary-btn">Zaloguj się</button>
+            <button type="submit" class="primary-btn">Zaloguj się</button>
+            <button id="forgotPasswordLink" type="button" class="text-btn">Nie pamiętasz hasła?</button>
 
-          <p id="loginError" class="error-message"></p>
+            <p id="loginError" class="error-message"></p>
 
-          <div class="version-line">
-            Panel KGW <span id="loginVersion"></span>
-          </div>
-        </form>
+            <div class="version-line">
+              Panel KGW <span id="loginVersion"></span>
+            </div>
+          </form>
+
+          <form id="forgotPasswordForm" class="login-form hidden">
+            <h2>Reset hasła</h2>
+            <p class="muted">Wpisz e-mail użytkownika. Wyślemy link do ustawienia nowego hasła.</p>
+
+            <label>
+              E-mail
+              <input id="forgotPasswordEmail" type="email" autocomplete="email" required />
+            </label>
+
+            <button type="submit" class="primary-btn">Wyślij link resetujący</button>
+            <button id="backToLoginBtn" type="button" class="secondary-btn login-secondary-action">Wróć do logowania</button>
+
+            <p id="forgotPasswordMessage" class="form-message"></p>
+
+            <div class="version-line">
+              Panel KGW <span id="forgotVersion"></span>
+            </div>
+          </form>
+
+          <form id="resetPasswordForm" class="login-form hidden">
+            <h2>Ustaw nowe hasło</h2>
+            <p class="muted">Wpisz nowe hasło do panelu. Po zapisaniu wrócisz do logowania.</p>
+
+            <label>
+              Nowe hasło
+              <input id="newPassword" type="password" autocomplete="new-password" minlength="6" required />
+            </label>
+
+            <label>
+              Powtórz nowe hasło
+              <input id="newPasswordRepeat" type="password" autocomplete="new-password" minlength="6" required />
+            </label>
+
+            <button type="submit" class="primary-btn">Zapisz nowe hasło</button>
+
+            <p id="resetPasswordMessage" class="form-message"></p>
+
+            <div class="version-line">
+              Panel KGW <span id="resetVersion"></span>
+            </div>
+          </form>
+        </div>
       </section>
     </main>
 
