@@ -40,9 +40,11 @@ const appState = {
   documentYears: [],
   documentTypes: [],
   documentUploadTargetId: null,
+  circleUsers: [],
   circleUserSlots: [],
   editingCircleUserSlot: null,
   userActivationRequests: [],
+  activationProfilesByEmail: new Map(),
   editingActivationSlot: null
 };
 
@@ -482,7 +484,7 @@ async function loadProfileAndCircle() {
 
   const { data: profile, error: profileError } = await appState.supabase
     .from("profiles")
-    .select("user_id, circle_id, display_name, email, role, is_active")
+    .select("user_id, circle_id, display_name, email, role, is_active, first_login_at, last_login_at")
     .eq("user_id", userId)
     .single();
 
@@ -493,12 +495,44 @@ async function loadProfileAndCircle() {
   }
 
   appState.profile = profile;
+  await updateUserLoginTimestamps(profile);
 
   await loadAvailableCircles();
   setupActiveCircle();
   renderUserInfo();
   renderSuperAdminUi();
   await loadAllCircleData();
+}
+
+async function updateUserLoginTimestamps(profile) {
+  if (!profile?.user_id) return;
+
+  const now = new Date().toISOString();
+  const payload = {
+    last_login_at: now
+  };
+
+  if (!profile.first_login_at) {
+    payload.first_login_at = now;
+  }
+
+  const { data, error } = await appState.supabase
+    .from("profiles")
+    .update(payload)
+    .eq("user_id", profile.user_id)
+    .select("first_login_at, last_login_at")
+    .single();
+
+  if (error) {
+    console.warn("Nie udało się zapisać informacji o logowaniu.", error);
+    return;
+  }
+
+  appState.profile = {
+    ...appState.profile,
+    first_login_at: data?.first_login_at || profile.first_login_at || now,
+    last_login_at: data?.last_login_at || now
+  };
 }
 
 function isSuperAdmin() {
@@ -1444,6 +1478,16 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
   return new Intl.DateTimeFormat("pl-PL").format(date);
+}
+
+function formatDateTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("pl-PL", {
+    dateStyle: "short",
+    timeStyle: "short"
+  }).format(date);
 }
 
 function handleMemberSearch(event) {
@@ -4129,7 +4173,7 @@ async function loadCircleUsers() {
 
   const { data: profiles, error: profilesError } = await appState.supabase
     .from("profiles")
-    .select("user_id, circle_id, display_name, email, role, is_active, created_at, updated_at")
+    .select("user_id, circle_id, display_name, email, role, is_active, first_login_at, last_login_at, created_at, updated_at")
     .eq("circle_id", circleId)
     .order("display_name", { ascending: true });
 
@@ -4204,12 +4248,14 @@ function renderCircleUserProfileRow(profile) {
   const statusClass = profile.is_active ? "status-active" : "status-cancelled";
   const statusLabel = profile.is_active ? "Aktywny" : "Zablokowany";
   const role = roleLabel(profile.role);
+  const loginInfo = formatLoginInfo(profile);
 
   return `
     <tr>
       <td>
         <span class="member-name">${escapeHtml(profile.display_name || "Użytkownik")}</span>
         <span class="table-note">Profil przypisany do koła</span>
+        <span class="table-note">${escapeHtml(loginInfo)}</span>
       </td>
       <td>${escapeHtml(profile.email || "-")}</td>
       <td><span class="status-pill role-pill">${escapeHtml(role)}</span></td>
@@ -4230,8 +4276,21 @@ function renderCircleUserSlotRow(slot, profile) {
   const displayName = profile?.display_name || slot.assigned_display_name || (isAvailable ? "Wolne miejsce" : "Użytkownik");
   const email = profile?.email || slot.assigned_email || "-";
   const role = roleLabel(profile?.role || slot.default_role);
-  const statusLabel = isAvailable ? "Do aktywacji" : isInvited ? "Zgłoszono" : isInactive ? "Nieaktywny" : "Aktywny";
-  const statusClass = isAvailable ? "status-due" : isInvited ? "status-exempt" : isInactive ? "status-cancelled" : "status-active";
+  const loginInfo = profile ? formatLoginInfo(profile) : "";
+  const statusLabel = isAvailable
+    ? "Do aktywacji"
+    : isInvited
+      ? "Zgłoszono"
+      : isInactive
+        ? "Nieaktywny"
+        : (profile?.first_login_at ? "Aktywny" : "Czeka na logowanie");
+  const statusClass = isAvailable
+    ? "status-due"
+    : isInvited
+      ? "status-exempt"
+      : isInactive
+        ? "status-cancelled"
+        : (profile?.first_login_at ? "status-active" : "status-exempt");
 
   let actions = "";
   if (isAvailable) {
@@ -4255,6 +4314,7 @@ function renderCircleUserSlotRow(slot, profile) {
       <td>
         <span class="member-name small-name">${escapeHtml(displayName)}</span>
         <span class="table-note">${escapeHtml(email)}</span>
+        ${loginInfo ? `<span class="table-note">${escapeHtml(loginInfo)}</span>` : ""}
       </td>
       <td><span class="status-pill role-pill">${escapeHtml(role)}</span></td>
       <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
@@ -4545,7 +4605,37 @@ async function loadActivationRequests() {
   }
 
   appState.userActivationRequests = data || [];
+  await loadActivationRequestProfiles();
   renderActivationRequestsList();
+}
+
+async function loadActivationRequestProfiles() {
+  appState.activationProfilesByEmail = new Map();
+
+  const requests = appState.userActivationRequests || [];
+  if (!requests.length || !isSuperAdmin()) return;
+
+  const emails = [...new Set(requests
+    .map((request) => String(request.requested_email || "").toLowerCase().trim())
+    .filter(Boolean))];
+
+  if (!emails.length) return;
+
+  const { data, error } = await appState.supabase
+    .from("profiles")
+    .select("user_id, circle_id, email, display_name, role, is_active, first_login_at, last_login_at")
+    .in("email", emails);
+
+  if (error) {
+    console.warn("Nie udało się pobrać logowań użytkowników dla zgłoszeń.", error);
+    return;
+  }
+
+  (data || []).forEach((profile) => {
+    if (profile.email) {
+      appState.activationProfilesByEmail.set(String(profile.email).toLowerCase(), profile);
+    }
+  });
 }
 
 function renderActivationRequestsList() {
@@ -4568,6 +4658,10 @@ function renderActivationRequestsList() {
     const circle = appState.availableCircles.find((item) => item.id === request.circle_id);
     const slot = appState.circleUserSlots.find((item) => item.id === request.slot_id);
     const statusInfo = activationRequestStatus(request.status);
+    const activationProfile = request.requested_email
+      ? appState.activationProfilesByEmail.get(String(request.requested_email).toLowerCase())
+      : null;
+    const loginInfo = formatLoginInfo(activationProfile);
 
     return `
       <tr>
@@ -4587,7 +4681,11 @@ function renderActivationRequestsList() {
         </td>
         <td>${escapeHtml(request.requested_function || "-")}</td>
         <td><span class="status-pill role-pill">${escapeHtml(roleLabel(request.requested_role))}</span></td>
-        <td><span class="status-pill ${statusInfo.className}">${statusInfo.label}</span></td>
+        <td>
+          <span class="status-pill ${statusInfo.className}">${statusInfo.label}</span>
+          <span class="table-note">${escapeHtml(loginInfo)}</span>
+          ${activationProfile ? loginStatusPill(activationProfile) : ""}
+        </td>
         <td class="table-actions">
           ${request.status === "pending" ? `
             <button type="button" onclick="window.markActivationRequestActivated('${request.id}')">Oznacz aktywowane</button>
@@ -4596,6 +4694,28 @@ function renderActivationRequestsList() {
         </td>
       </tr>`;
   }).join("");
+}
+
+function formatLoginInfo(profile) {
+  if (!profile) return "Konto nie jest jeszcze przypisane do panelu.";
+
+  if (profile.first_login_at) {
+    return `Pierwsze logowanie: ${formatDateTime(profile.first_login_at)}${profile.last_login_at ? ` · Ostatnie: ${formatDateTime(profile.last_login_at)}` : ""}`;
+  }
+
+  return "Konto przygotowane — oczekuje na pierwsze logowanie.";
+}
+
+function loginStatusPill(profile) {
+  if (!profile) {
+    return `<span class="status-pill status-due">Oczekuje na przypisanie</span>`;
+  }
+
+  if (profile.first_login_at) {
+    return `<span class="status-pill status-active">Zalogował się</span>`;
+  }
+
+  return `<span class="status-pill status-exempt">Czeka na pierwsze logowanie</span>`;
 }
 
 function activationRequestStatus(status) {
@@ -4816,7 +4936,7 @@ async function markActivationRequestActivated(requestId) {
 
   const { data: matchingProfiles, error: profileLookupError } = await appState.supabase
     .from("profiles")
-    .select("user_id, email, display_name, role, is_active")
+    .select("user_id, circle_id, email, display_name, role, is_active, first_login_at, last_login_at")
     .eq("circle_id", request.circle_id)
     .ilike("email", request.requested_email)
     .limit(1);
