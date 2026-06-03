@@ -3980,16 +3980,13 @@ async function handleDocumentFormSubmit(event) {
   );
 
   hideDocumentForm();
-  await logActivity(
-    "Dokumenty",
-    "Usunięcie dokumentu",
-    `${documentEntry.document_type || "Dokument"} — ${documentEntry.title || ""}`
-  );
 
   await loadDocuments();
   await loadDashboardStats();
   await loadStorageUsageForSuperAdmin();
   renderStorageLimitsList();
+
+  showToast("Dokument został zapisany.");
 }
 
 function handleEditDocument(documentId) {
