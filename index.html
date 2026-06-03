@@ -1336,11 +1336,41 @@
                 <div>
                   <p class="eyebrow">Logi</p>
                   <h3>Logi programu</h3>
-                  <p>Tu później pojawią się ważne zdarzenia: logowania, zmiany ról, dodanie dokumentu, anulowanie wpisu.</p>
+                  <p>Najważniejsze zdarzenia w programie: logowania, dokumenty, składki, finanse i administracja.</p>
+                </div>
+                <button id="refreshActivityLogsBtn" class="secondary-btn" type="button">Odśwież</button>
+              </div>
+
+              <div class="list-toolbar">
+                <input id="activityLogSearch" type="search" placeholder="Szukaj w logach..." />
+                <div class="toolbar-filters">
+                  <select id="activityLogCircleFilter">
+                    <option value="all">Wszystkie koła</option>
+                  </select>
+                  <select id="activityLogModuleFilter">
+                    <option value="all">Wszystkie moduły</option>
+                  </select>
                 </div>
               </div>
-              <div class="module-card soft-placeholder">
-                <p class="muted">Miejsce przygotowane pod logi i diagnostykę programu.</p>
+
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Data</th>
+                      <th>Koło</th>
+                      <th>Użytkownik</th>
+                      <th>Moduł</th>
+                      <th>Akcja</th>
+                      <th>Szczegóły</th>
+                    </tr>
+                  </thead>
+                  <tbody id="activityLogsList">
+                    <tr>
+                      <td colspan="6">Ładowanie logów...</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </section>
 

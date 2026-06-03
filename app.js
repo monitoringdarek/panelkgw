@@ -45,7 +45,11 @@ const appState = {
   editingCircleUserSlot: null,
   userActivationRequests: [],
   activationProfilesByEmail: new Map(),
-  editingActivationSlot: null
+  editingActivationSlot: null,
+  activityLogs: [],
+  activityLogSearchTerm: "",
+  activityLogCircleFilter: "all",
+  activityLogModuleFilter: "all"
 };
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -133,6 +137,10 @@ function setupEvents() {
   const activationRequestForm = document.getElementById("activationRequestForm");
   const cancelActivationRequestBtn = document.getElementById("cancelActivationRequestBtn");
   const refreshActivationRequestsBtn = document.getElementById("refreshActivationRequestsBtn");
+  const refreshActivityLogsBtn = document.getElementById("refreshActivityLogsBtn");
+  const activityLogSearch = document.getElementById("activityLogSearch");
+  const activityLogCircleFilter = document.getElementById("activityLogCircleFilter");
+  const activityLogModuleFilter = document.getElementById("activityLogModuleFilter");
   const cancelCircleUserSlotBtn = document.getElementById("cancelCircleUserSlotBtn");
   const uploadCircleLogoBtn = document.getElementById("uploadCircleLogoBtn");
   const removeCircleLogoBtn = document.getElementById("removeCircleLogoBtn");
@@ -188,6 +196,10 @@ function setupEvents() {
   activationRequestForm?.addEventListener("submit", handleActivationRequestSubmit);
   cancelActivationRequestBtn?.addEventListener("click", hideActivationRequestForm);
   refreshActivationRequestsBtn?.addEventListener("click", loadActivationRequests);
+  refreshActivityLogsBtn?.addEventListener("click", loadActivityLogs);
+  activityLogSearch?.addEventListener("input", handleActivityLogSearch);
+  activityLogCircleFilter?.addEventListener("change", handleActivityLogFilterChange);
+  activityLogModuleFilter?.addEventListener("change", handleActivityLogFilterChange);
   uploadCircleLogoBtn?.addEventListener("click", triggerCircleLogoUpload);
   removeCircleLogoBtn?.addEventListener("click", removeCircleLogo);
   circleLogoUploadInput?.addEventListener("change", handleCircleLogoSelected);
@@ -533,6 +545,13 @@ async function updateUserLoginTimestamps(profile) {
     first_login_at: data?.first_login_at || profile.first_login_at || now,
     last_login_at: data?.last_login_at || now
   };
+
+  await logActivity(
+    "Logowanie",
+    profile.first_login_at ? "Logowanie użytkownika" : "Pierwsze logowanie użytkownika",
+    profile.first_login_at ? "Użytkownik zalogował się do panelu." : "Użytkownik zalogował się pierwszy raz.",
+    profile.circle_id
+  );
 }
 
 function isSuperAdmin() {
@@ -655,6 +674,7 @@ async function loadAllCircleData() {
   await loadDocuments();
   await loadCircleUsers();
   await loadActivationRequests();
+  await loadActivityLogs();
   renderCirclesList();
   updatePermissionUi();
 }
@@ -730,6 +750,7 @@ function renderSuperAdminUi() {
   }
 
   renderCirclesList();
+  renderActivityLogFilters();
 }
 
 async function handleActiveCircleChange(event) {
@@ -1298,6 +1319,11 @@ async function generateContributionsForPeriod() {
 
   const skipped = activeMembers.length - created;
   showToast(`Utworzono ${created} składek. Pominięto ${skipped} istniejących wpisów.`);
+  await logActivity(
+    "Składki",
+    "Wygenerowanie składek",
+    `${periodLabel}: utworzono ${created}, pominięto ${skipped}, kwota ${formatMoney(amount)}`
+  );
 
   await loadContributions();
   await loadDashboardStats();
@@ -1326,6 +1352,11 @@ async function markContributionPaid(contributionId) {
   // ensure member data
   const member = appState.members.find((m) => m.id === entry.member_id);
   await handleContributionFinanceEntry(circleId, contributionId, member, { ...entry, status: "paid", paid_at: paidAt, payment_method });
+  await logActivity(
+    "Składki",
+    "Oznaczenie składki jako zapłaconej",
+    `${member ? `${member.first_name || ""} ${member.last_name || ""}`.trim() : "Nieznany członek"} — ${entry.period_label || ""} — ${formatMoney(entry.amount)}`
+  );
 
   await loadContributions();
   await loadDashboardStats();
@@ -2067,7 +2098,19 @@ async function handleMemberFormSubmit(event) {
     }
   }
 
+  await logActivity(
+    "Członkowie",
+    appState.editingMember ? "Edycja członka" : "Dodanie członka",
+    `${firstName} ${lastName}`
+  );
+
   hideMemberForm();
+  await logActivity(
+    "Członkowie",
+    newStatus === "active" ? "Przywrócenie członka" : "Dezaktywacja członka",
+    `${member.first_name || ""} ${member.last_name || ""}`.trim()
+  );
+
   await loadMembers();
   await loadDashboardStats();
 }
@@ -2607,7 +2650,19 @@ async function handleFinanceFormSubmit(event) {
     }
   }
 
+  await logActivity(
+    "Finanse",
+    appState.editingFinance ? "Edycja wpisu finansowego" : "Dodanie wpisu finansowego",
+    `${type === "income" ? "Wpływ" : "Wydatek"} — ${category} — ${description} — ${formatMoney(amount)}`
+  );
+
   hideFinanceForm();
+  await logActivity(
+    "Finanse",
+    "Anulowanie wpisu finansowego",
+    `${entry.category || ""} — ${entry.description || ""} — ${formatMoney(entry.amount)}`
+  );
+
   await loadFinances();
   await loadDashboardStats();
   await refreshFinanceBalance();
@@ -3918,7 +3973,19 @@ async function handleDocumentFormSubmit(event) {
     }
   }
 
+  await logActivity(
+    "Dokumenty",
+    appState.editingDocument ? "Edycja dokumentu" : "Dodanie dokumentu",
+    `${documentType} — ${title}${fileName ? ` — plik: ${fileName}` : ""}`
+  );
+
   hideDocumentForm();
+  await logActivity(
+    "Dokumenty",
+    "Usunięcie dokumentu",
+    `${documentEntry.document_type || "Dokument"} — ${documentEntry.title || ""}`
+  );
+
   await loadDocuments();
   await loadDashboardStats();
   await loadStorageUsageForSuperAdmin();
@@ -4054,6 +4121,7 @@ async function handleActiveCircleFormSubmit(event) {
   renderUserInfo();
   renderSuperAdminUi();
   setDefaultContributionGeneratorValues();
+  await logActivity("Administracja", "Zapis danych koła", payload.name, circleId);
   showToast("Dane koła zostały zapisane.");
 }
 
@@ -4140,6 +4208,12 @@ async function handleCircleFormSubmit(event) {
   renderUserInfo();
   renderSuperAdminUi();
   await loadAllCircleData();
+  await logActivity(
+    "Super Admin",
+    circleId ? "Edycja koła" : "Dodanie koła",
+    payload.name,
+    circleId || result.data?.id || null
+  );
   showToast("Koło zostało zapisane.");
 }
 
@@ -4858,6 +4932,12 @@ async function handleActivationRequestSubmit(event) {
     showToast("Zgłoszenie zapisano, ale nie udało się zaktualizować miejsca użytkownika.", "error");
   }
 
+  await logActivity(
+    "Użytkownicy",
+    "Zgłoszenie aktywacji użytkownika",
+    `${displayName} — ${email} — ${roleLabel(role)}`
+  );
+
   hideActivationRequestForm();
   await loadCircleUsers();
   await loadActivationRequests();
@@ -4988,6 +5068,13 @@ async function markActivationRequestActivated(requestId) {
     showToast("Miejsce aktywowano, ale nie udało się zamknąć zgłoszenia.", "error");
   }
 
+  await logActivity(
+    "Użytkownicy",
+    "Aktywowanie zgłoszenia użytkownika",
+    `${request.requested_display_name || ""} — ${request.requested_email || ""}`,
+    request.circle_id
+  );
+
   await loadActivationRequests();
   await loadCircleUsers();
   showToast("Zgłoszenie oznaczone jako aktywowane.");
@@ -5028,6 +5115,13 @@ async function rejectActivationRequest(requestId) {
       })
       .eq("id", request.slot_id);
   }
+
+  await logActivity(
+    "Użytkownicy",
+    "Odrzucenie zgłoszenia użytkownika",
+    `${request.requested_display_name || ""} — ${request.requested_email || ""}`,
+    request.circle_id
+  );
 
   await loadActivationRequests();
   await loadCircleUsers();
@@ -5148,6 +5242,153 @@ window.showActivationRequestForSlot = showActivationRequestForSlot;
 window.cancelActivationRequestForSlot = cancelActivationRequestForSlot;
 window.markActivationRequestActivated = markActivationRequestActivated;
 window.rejectActivationRequest = rejectActivationRequest;
+
+
+
+async function logActivity(moduleName, actionName, details = "", circleId = null) {
+  if (!appState.supabase || !appState.user) return;
+
+  const targetCircleId = circleId === undefined || circleId === null ? getActiveCircleId() : circleId;
+  const payload = {
+    circle_id: targetCircleId || null,
+    user_id: appState.user.id,
+    user_email: appState.profile?.email || appState.user.email || null,
+    user_name: appState.profile?.display_name || appState.user.email || null,
+    module: moduleName,
+    action: actionName,
+    details: details || null
+  };
+
+  const { error } = await appState.supabase
+    .from("activity_logs")
+    .insert(payload);
+
+  if (error) {
+    console.warn("Nie udało się zapisać logu:", error);
+  }
+}
+
+async function loadActivityLogs() {
+  if (!isSuperAdmin() || !appState.supabase) {
+    appState.activityLogs = [];
+    renderActivityLogsList();
+    return;
+  }
+
+  const { data, error } = await appState.supabase
+    .from("activity_logs")
+    .select("id, circle_id, user_id, user_email, user_name, module, action, details, created_at, circles(name)")
+    .order("created_at", { ascending: false })
+    .limit(300);
+
+  if (error) {
+    console.error(error);
+    renderActivityLogsList("Nie udało się pobrać logów programu.");
+    return;
+  }
+
+  appState.activityLogs = data || [];
+  renderActivityLogFilters();
+  renderActivityLogsList();
+}
+
+function renderActivityLogFilters() {
+  const circleFilter = document.getElementById("activityLogCircleFilter");
+  const moduleFilter = document.getElementById("activityLogModuleFilter");
+
+  if (circleFilter) {
+    const options = ['<option value="all">Wszystkie koła</option>']
+      .concat(appState.availableCircles.map((circle) => `
+        <option value="${circle.id}" ${circle.id === appState.activityLogCircleFilter ? "selected" : ""}>
+          ${escapeHtml(circle.name)}
+        </option>
+      `));
+    circleFilter.innerHTML = options.join("");
+    circleFilter.value = appState.activityLogCircleFilter || "all";
+  }
+
+  if (moduleFilter) {
+    const modules = Array.from(new Set((appState.activityLogs || []).map((log) => log.module).filter(Boolean))).sort();
+    moduleFilter.innerHTML = ['<option value="all">Wszystkie moduły</option>']
+      .concat(modules.map((moduleName) => `
+        <option value="${escapeAttribute(moduleName)}" ${moduleName === appState.activityLogModuleFilter ? "selected" : ""}>
+          ${escapeHtml(moduleName)}
+        </option>
+      `))
+      .join("");
+    moduleFilter.value = appState.activityLogModuleFilter || "all";
+  }
+}
+
+function handleActivityLogSearch(event) {
+  appState.activityLogSearchTerm = event.target.value || "";
+  renderActivityLogsList();
+}
+
+function handleActivityLogFilterChange() {
+  appState.activityLogCircleFilter = document.getElementById("activityLogCircleFilter")?.value || "all";
+  appState.activityLogModuleFilter = document.getElementById("activityLogModuleFilter")?.value || "all";
+  renderActivityLogsList();
+}
+
+function getVisibleActivityLogs() {
+  const search = normalizeText(appState.activityLogSearchTerm);
+
+  return (appState.activityLogs || []).filter((log) => {
+    const circleName = log.circles?.name || "";
+    const haystack = normalizeText([
+      log.created_at,
+      circleName,
+      log.user_email,
+      log.user_name,
+      log.module,
+      log.action,
+      log.details
+    ].join(" "));
+
+    const matchesSearch = !search || haystack.includes(search);
+    const matchesCircle = appState.activityLogCircleFilter === "all" || log.circle_id === appState.activityLogCircleFilter;
+    const matchesModule = appState.activityLogModuleFilter === "all" || log.module === appState.activityLogModuleFilter;
+
+    return matchesSearch && matchesCircle && matchesModule;
+  });
+}
+
+function renderActivityLogsList(errorMessage = "") {
+  const tbody = document.getElementById("activityLogsList");
+  if (!tbody) return;
+
+  if (errorMessage) {
+    tbody.innerHTML = `<tr><td colspan="6">${escapeHtml(errorMessage)}</td></tr>`;
+    return;
+  }
+
+  if (!isSuperAdmin()) {
+    tbody.innerHTML = `<tr><td colspan="6">Logi są widoczne tylko dla administratora programu.</td></tr>`;
+    return;
+  }
+
+  const logs = getVisibleActivityLogs();
+
+  if (!logs.length) {
+    tbody.innerHTML = `<tr><td colspan="6">Brak logów pasujących do filtrów.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = logs.map((log) => `
+    <tr>
+      <td>${escapeHtml(formatDateTime(log.created_at))}</td>
+      <td>${escapeHtml(log.circles?.name || "Brak koła")}</td>
+      <td>
+        <span class="member-name">${escapeHtml(log.user_name || "Użytkownik")}</span>
+        <span class="table-note">${escapeHtml(log.user_email || "")}</span>
+      </td>
+      <td><span class="status-pill status-exempt">${escapeHtml(log.module)}</span></td>
+      <td>${escapeHtml(log.action)}</td>
+      <td>${escapeHtml(log.details || "")}</td>
+    </tr>
+  `).join("");
+}
 
 
 function normalizeText(value) {
@@ -5369,6 +5610,7 @@ async function handleCircleLogoSelected(event) {
   appState.circle = getActiveCircle();
   renderUserInfo();
   renderSuperAdminUi();
+  await logActivity("Administracja", "Zmiana logo koła", file.name, circleId);
   showToast("Logo koła zostało zapisane.");
   event.target.value = "";
 }
@@ -5407,6 +5649,7 @@ async function removeCircleLogo() {
   appState.circle = getActiveCircle();
   renderUserInfo();
   renderSuperAdminUi();
+  await logActivity("Administracja", "Usunięcie logo koła", circle.name || "", circleId);
   showToast("Logo koła zostało usunięte.");
 }
 
@@ -5450,6 +5693,10 @@ function showView(viewName) {
   const viewEl = document.getElementById(`${viewName}View`);
   if (viewEl) {
     viewEl.classList.add("active-view");
+  }
+
+  if (viewName === "superAdmin") {
+    loadActivityLogs();
   }
 }
 
