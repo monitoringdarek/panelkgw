@@ -702,6 +702,20 @@
             <button id="newDocumentBtn" class="primary-btn">Nowy dokument</button>
           </div>
 
+          <div class="storage-card" id="documentStorageCard">
+            <div class="storage-card-header">
+              <div>
+                <p class="eyebrow">Miejsce na dokumenty</p>
+                <h3 id="documentStorageTitle">0 MB / 50 MB</h3>
+                <p id="documentStorageHint" class="muted">Limit dotyczy plików dodanych w Dokumentach.</p>
+              </div>
+              <strong id="documentStoragePercent">0%</strong>
+            </div>
+            <div class="storage-bar" aria-hidden="true">
+              <div id="documentStorageBar" class="storage-bar-fill"></div>
+            </div>
+          </div>
+
           <div id="documentFormBox" class="form-box hidden">
             <div class="form-header">
               <div>
@@ -755,6 +769,9 @@
 
                 <input id="documentUploadInput" class="hidden" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx" />
                 <input id="documentFileUrl" type="hidden" />
+                <input id="documentFileName" type="hidden" />
+                <input id="documentFileSize" type="hidden" />
+                <input id="documentFileMimeType" type="hidden" />
               </div>
 
               <label>
@@ -1022,6 +1039,11 @@
                       <small class="field-help">Kwota podpowiadana przy generowaniu składek.</small>
                     </label>
                     <label>
+                      Limit dokumentów (MB)
+                      <input id="managedCircleStorageLimitInput" type="number" min="1" step="1" />
+                      <small class="field-help">Domyślnie 50 MB. Możesz zmienić limit dla większych kół.</small>
+                    </label>
+                    <label>
                       E-mail kontaktowy
                       <input id="managedCircleEmailInput" type="email" />
                     </label>
@@ -1048,13 +1070,14 @@
                       <th>Nazwa koła</th>
                       <th>Status</th>
                       <th>Składka</th>
+                      <th>Limit dokumentów</th>
                       <th>Kontakt</th>
                       <th class="actions-cell">Akcje</th>
                     </tr>
                   </thead>
                   <tbody id="circlesList">
                     <tr>
-                      <td colspan="5">Ładowanie kół...</td>
+                      <td colspan="6">Ładowanie kół...</td>
                     </tr>
                   </tbody>
                 </table>
@@ -1066,11 +1089,27 @@
                 <div>
                   <p class="eyebrow">Limity miejsca</p>
                   <h3>Limity dokumentów</h3>
-                  <p>Tu dodamy limity przestrzeni dyskowej dla kół, np. 50 MB na koło oraz licznik procentowy.</p>
+                  <p>Kontrola przestrzeni Supabase Storage. Domyślnie każde koło ma 50 MB na dokumenty.</p>
                 </div>
               </div>
-              <div class="module-card soft-placeholder">
-                <p class="muted">Miejsce przygotowane pod kolejny etap: limit dokumentów i wskaźnik użycia miejsca.</p>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Koło</th>
+                      <th>Użyto</th>
+                      <th>Limit</th>
+                      <th>Procent</th>
+                      <th>Status</th>
+                      <th class="actions-cell">Akcje</th>
+                    </tr>
+                  </thead>
+                  <tbody id="circleStorageList">
+                    <tr>
+                      <td colspan="6">Ładowanie limitów...</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </section>
 

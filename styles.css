@@ -1855,3 +1855,112 @@ button.hidden,
 #superAdminNavBtn.hidden {
   display: none !important;
 }
+
+
+/* =========================================================
+   LIMIT MIEJSCA NA DOKUMENTY
+   ========================================================= */
+
+.storage-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 20px 22px;
+  box-shadow: 0 14px 35px rgba(68, 75, 61, 0.08);
+  margin-bottom: 22px;
+}
+
+.storage-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.storage-card h3 {
+  margin: 0 0 6px;
+  font-size: 26px;
+}
+
+.storage-card strong {
+  color: var(--accent-dark);
+  font-size: 28px;
+  white-space: nowrap;
+}
+
+.storage-bar,
+.mini-storage-bar {
+  overflow: hidden;
+  background: var(--card-soft);
+  border: 1px solid var(--line);
+}
+
+.storage-bar {
+  height: 14px;
+  border-radius: 999px;
+  margin-top: 14px;
+}
+
+.storage-bar-fill {
+  height: 100%;
+  width: 0%;
+  border-radius: inherit;
+  transition: width 0.25s ease;
+}
+
+.storage-ok,
+.storage-bar-fill.storage-ok {
+  background: var(--accent);
+  color: var(--accent-dark);
+}
+
+.storage-warning,
+.storage-bar-fill.storage-warning {
+  background: var(--warning);
+  color: #7a4e12;
+}
+
+.storage-danger,
+.storage-bar-fill.storage-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.storage-warning-card {
+  border-color: rgba(201, 139, 60, 0.45);
+}
+
+.storage-danger-card {
+  border-color: rgba(182, 75, 75, 0.5);
+}
+
+.mini-storage {
+  display: grid;
+  gap: 6px;
+  min-width: 130px;
+}
+
+.mini-storage > span {
+  font-weight: 900;
+  color: var(--text);
+}
+
+.mini-storage-bar {
+  height: 9px;
+  border-radius: 999px;
+}
+
+.mini-storage-bar div {
+  height: 100%;
+  border-radius: inherit;
+}
+
+@media (max-width: 700px) {
+  .storage-card-header {
+    flex-direction: column;
+  }
+
+  .storage-card strong {
+    font-size: 24px;
+  }
+}

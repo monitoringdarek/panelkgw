@@ -388,7 +388,7 @@ async function loadAvailableCircles() {
   if (isSuperAdmin()) {
     const { data, error } = await appState.supabase
       .from("circles")
-      .select("id, name, short_name, status, membership_fee_amount, contact_email, contact_phone, notes")
+      .select("id, name, short_name, status, membership_fee_amount, storage_limit_mb, contact_email, contact_phone, notes")
       .order("name", { ascending: true });
 
     if (error) {
@@ -409,7 +409,7 @@ async function loadAvailableCircles() {
 
   const { data, error } = await appState.supabase
     .from("circles")
-    .select("id, name, short_name, status, membership_fee_amount, contact_email, contact_phone, notes")
+    .select("id, name, short_name, status, membership_fee_amount, storage_limit_mb, contact_email, contact_phone, notes")
     .eq("id", appState.profile.circle_id)
     .single();
 
@@ -2644,6 +2644,190 @@ window.handleEditCulinaryDish = handleEditCulinaryDish;
 window.handleDeleteCulinaryDish = handleDeleteCulinaryDish;
 
 
+
+function getCircleStorageLimitMb(circle = getActiveCircle()) {
+  const value = Number(circle?.storage_limit_mb);
+  return Number.isFinite(value) && value > 0 ? value : 50;
+}
+
+function getDocumentFilePath(doc) {
+  return doc?.file_path || doc?.file_url || "";
+}
+
+function getDocumentFileName(doc) {
+  if (doc?.file_name) return doc.file_name;
+  const path = getDocumentFilePath(doc);
+  if (!path) return "";
+  try {
+    return decodeURIComponent(String(path).split("/").pop() || "plik");
+  } catch {
+    return String(path).split("/").pop() || "plik";
+  }
+}
+
+function getDocumentFileSizeBytes(doc) {
+  const value = Number(doc?.file_size_bytes || 0);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+function getCurrentDocumentStorageUsageBytes() {
+  return (appState.documents || []).reduce((sum, doc) => sum + getDocumentFileSizeBytes(doc), 0);
+}
+
+function getCircleStorageUsageBytes(circleId) {
+  const rows = appState.allDocumentStorageRows || [];
+  return rows
+    .filter((doc) => doc.circle_id === circleId)
+    .reduce((sum, doc) => sum + getDocumentFileSizeBytes(doc), 0);
+}
+
+function formatBytes(bytes) {
+  const value = Number(bytes || 0);
+  if (value < 1024) return `${value} B`;
+  const kb = value / 1024;
+  if (kb < 1024) return `${kb.toFixed(1).replace(".", ",")} KB`;
+  const mb = kb / 1024;
+  if (mb < 1024) return `${mb.toFixed(1).replace(".", ",")} MB`;
+  const gb = mb / 1024;
+  return `${gb.toFixed(2).replace(".", ",")} GB`;
+}
+
+function storageStatusClass(percent) {
+  if (percent >= 90) return "storage-danger";
+  if (percent >= 70) return "storage-warning";
+  return "storage-ok";
+}
+
+function renderDocumentStorageUsage() {
+  const circle = getActiveCircle();
+  const limitMb = getCircleStorageLimitMb(circle);
+  const limitBytes = limitMb * 1024 * 1024;
+  const usedBytes = getCurrentDocumentStorageUsageBytes();
+  const percent = limitBytes > 0 ? Math.min(100, Math.round((usedBytes / limitBytes) * 100)) : 0;
+
+  setText("documentStorageTitle", `${formatBytes(usedBytes)} / ${limitMb} MB`);
+  setText("documentStoragePercent", `${percent}%`);
+
+  const hint = document.getElementById("documentStorageHint");
+  if (hint) {
+    if (percent >= 100) {
+      hint.textContent = "Limit miejsca został wykorzystany. Usuń niepotrzebne pliki albo skontaktuj się z administratorem.";
+    } else if (percent >= 90) {
+      hint.textContent = "Uwaga: zbliżasz się do końca dostępnego miejsca na dokumenty.";
+    } else if (percent >= 70) {
+      hint.textContent = "Miejsce na dokumenty jest już w dużej części wykorzystane.";
+    } else {
+      hint.textContent = "Limit dotyczy plików dodanych w Dokumentach.";
+    }
+  }
+
+  const bar = document.getElementById("documentStorageBar");
+  if (bar) {
+    bar.style.width = `${percent}%`;
+    bar.classList.remove("storage-ok", "storage-warning", "storage-danger");
+    bar.classList.add(storageStatusClass(percent));
+  }
+
+  const card = document.getElementById("documentStorageCard");
+  if (card) {
+    card.classList.remove("storage-ok-card", "storage-warning-card", "storage-danger-card");
+    card.classList.add(`${storageStatusClass(percent)}-card`);
+  }
+}
+
+async function loadStorageUsageForSuperAdmin() {
+  if (!isSuperAdmin()) {
+    appState.allDocumentStorageRows = [];
+    appState.storageUsageByCircle = {};
+    return;
+  }
+
+  const { data, error } = await appState.supabase
+    .from("documents")
+    .select("circle_id, file_size_bytes, file_url, file_path");
+
+  if (error) {
+    console.error(error);
+    appState.allDocumentStorageRows = [];
+    appState.storageUsageByCircle = {};
+    return;
+  }
+
+  appState.allDocumentStorageRows = data || [];
+  appState.storageUsageByCircle = {};
+
+  (data || []).forEach((doc) => {
+    const circleId = doc.circle_id;
+    if (!circleId) return;
+    appState.storageUsageByCircle[circleId] = (appState.storageUsageByCircle[circleId] || 0) + getDocumentFileSizeBytes(doc);
+  });
+}
+
+function renderStorageLimitsList() {
+  const list = document.getElementById("circleStorageList");
+  if (!list) return;
+
+  if (!isSuperAdmin()) {
+    list.innerHTML = "";
+    return;
+  }
+
+  if (!appState.availableCircles.length) {
+    list.innerHTML = `<tr><td colspan="6">Brak kół w programie.</td></tr>`;
+    return;
+  }
+
+  list.innerHTML = appState.availableCircles.map((circle) => {
+    const usedBytes = appState.storageUsageByCircle[circle.id] || 0;
+    const limitMb = getCircleStorageLimitMb(circle);
+    const limitBytes = limitMb * 1024 * 1024;
+    const percent = limitBytes > 0 ? Math.round((usedBytes / limitBytes) * 100) : 0;
+    const statusClass = storageStatusClass(percent);
+    const statusLabel = percent >= 100 ? "Limit przekroczony" : (percent >= 90 ? "Prawie pełne" : (percent >= 70 ? "Uwaga" : "OK"));
+
+    return `
+      <tr>
+        <td>
+          <span class="member-name">${escapeHtml(circle.name)}</span>
+          ${circle.short_name ? `<span class="table-note">${escapeHtml(circle.short_name)}</span>` : ""}
+        </td>
+        <td>${formatBytes(usedBytes)}</td>
+        <td>${limitMb} MB</td>
+        <td>
+          <div class="mini-storage">
+            <span>${percent}%</span>
+            <div class="mini-storage-bar"><div class="${statusClass}" style="width:${Math.min(100, percent)}%"></div></div>
+          </div>
+        </td>
+        <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+        <td class="table-actions">
+          <button type="button" onclick="showCircleForm('${circle.id}')">Zmień limit</button>
+          <button type="button" class="secondary" onclick="switchToCircle('${circle.id}')">Przełącz</button>
+        </td>
+      </tr>
+    `;
+  }).join("");
+}
+
+function canUploadDocumentFile(fileSizeBytes, replacingDocumentId = null) {
+  const circle = getActiveCircle();
+  const limitBytes = getCircleStorageLimitMb(circle) * 1024 * 1024;
+  let usedBytes = getCurrentDocumentStorageUsageBytes();
+
+  if (replacingDocumentId) {
+    const existingDoc = appState.documents.find((doc) => doc.id === replacingDocumentId);
+    usedBytes -= getDocumentFileSizeBytes(existingDoc);
+  }
+
+  return {
+    allowed: usedBytes + Number(fileSizeBytes || 0) <= limitBytes,
+    usedBytes: Math.max(0, usedBytes),
+    limitBytes,
+    afterBytes: usedBytes + Number(fileSizeBytes || 0)
+  };
+}
+
+
 // =========================================================
 // DOKUMENTY
 // =========================================================
@@ -2679,6 +2863,7 @@ async function loadDocuments() {
   appState.documents = data || [];
   updateDocumentFilters();
   renderDocumentSummary();
+  renderDocumentStorageUsage();
   renderDocumentsList();
 
   if (countLabel) {
@@ -2732,7 +2917,7 @@ function renderDocumentSummary() {
   const total = documents.length;
   const resolutions = documents.filter((doc) => normalizeText(doc.document_type) === "uchwała").length;
   const protocols = documents.filter((doc) => normalizeText(doc.document_type) === "protokół").length;
-  const withFiles = documents.filter((doc) => Boolean(doc.file_url)).length;
+  const withFiles = documents.filter((doc) => Boolean(getDocumentFilePath(doc))).length;
 
   setText("documentsTotal", String(total));
   setText("documentsResolutions", String(resolutions));
@@ -2768,7 +2953,8 @@ function renderDocumentsList() {
       doc.document_type,
       doc.title,
       doc.description,
-      doc.file_url,
+      getDocumentFilePath(doc),
+      doc.file_name,
       doc.notes
     ]
       .filter(Boolean)
@@ -2800,9 +2986,13 @@ function renderDocumentsList() {
         <tbody>
           ${visibleDocuments
             .map((doc) => {
-              const hasFile = Boolean(doc.file_url);
+              const filePath = getDocumentFilePath(doc);
+              const hasFile = Boolean(filePath);
+              const fileName = getDocumentFileName(doc);
+              const fileSize = getDocumentFileSizeBytes(doc);
               const linkCell = hasFile
-                ? `<button type="button" onclick="window.handleOpenDocumentFile('${doc.id}')">Otwórz</button>`
+                ? `<button type="button" onclick="window.handleOpenDocumentFile('${doc.id}')">Otwórz</button>
+                   <span class="table-note">${escapeHtml(fileName)}${fileSize ? ` • ${formatBytes(fileSize)}` : ""}</span>`
                 : (canWriteData() ? `<button type="button" onclick="window.handleAddDocumentFile('${doc.id}')" class="secondary">Dodaj</button>` : `<span class="muted">Brak pliku</span>`);
               const documentActions = canWriteData()
                 ? `<button type="button" onclick="window.handleEditDocument('${doc.id}')">Edytuj</button>
@@ -2833,14 +3023,20 @@ function renderDocumentsList() {
 }
 
 function updateDocumentAttachmentUi() {
-  const input = document.getElementById("documentFileUrl");
+  const pathInput = document.getElementById("documentFileUrl");
+  const nameInput = document.getElementById("documentFileName");
+  const sizeInput = document.getElementById("documentFileSize");
   const addBtn = document.getElementById("showDocumentLinkBtn");
   const openBtn = document.getElementById("openDocumentLinkBtn");
   const status = document.getElementById("documentAttachmentStatus");
-  const filePath = input?.value?.trim() || "";
+  const filePath = pathInput?.value?.trim() || "";
+  const fileName = nameInput?.value?.trim() || (filePath ? filePath.split("/").pop() : "");
+  const fileSize = Number(sizeInput?.value || 0);
 
   if (status) {
-    status.textContent = filePath ? "Plik dodany" : "Brak pliku";
+    status.textContent = filePath
+      ? `Plik dodany${fileName ? `: ${fileName}` : ""}${fileSize ? ` (${formatBytes(fileSize)})` : ""}`
+      : "Brak pliku";
   }
 
   if (openBtn) {
@@ -2867,7 +3063,20 @@ async function handleDocumentFileSelected(event) {
 
   const circleId = getActiveCircleId();
   if (!circleId) {
-    showToast("Brak przypisanego koła. Nie można dodać pliku.");
+    showToast("Brak przypisanego koła. Nie można dodać pliku.", "error");
+    return;
+  }
+
+  const targetDocumentId = appState.documentUploadTargetId || appState.editingDocument || null;
+  const limitCheck = canUploadDocumentFile(file.size, targetDocumentId);
+
+  if (!limitCheck.allowed) {
+    showToast(
+      `Limit miejsca na dokumenty został przekroczony. Po dodaniu byłoby ${formatBytes(limitCheck.afterBytes)} z ${formatBytes(limitCheck.limitBytes)}.`,
+      "error"
+    );
+    event.target.value = "";
+    updateDocumentAttachmentUi();
     return;
   }
 
@@ -2887,39 +3096,57 @@ async function handleDocumentFileSelected(event) {
 
   if (uploadError) {
     console.error(uploadError);
-    showToast("Nie udało się wgrać pliku. Sprawdź, czy w Supabase istnieje bucket documents i polityki dostępu.");
+    showToast("Nie udało się wgrać pliku. Sprawdź bucket documents i polityki dostępu.", "error");
     updateDocumentAttachmentUi();
     return;
   }
 
-  const targetDocumentId = appState.documentUploadTargetId;
+  const filePayload = {
+    file_url: storagePath,
+    file_path: storagePath,
+    file_name: file.name,
+    file_size_bytes: file.size,
+    file_mime_type: file.type || null
+  };
 
-  if (targetDocumentId) {
+  if (appState.documentUploadTargetId) {
+    const existingDoc = appState.documents.find((doc) => doc.id === appState.documentUploadTargetId);
+    const oldPath = getDocumentFilePath(existingDoc);
+
     const { error: updateError } = await appState.supabase
       .from("documents")
-      .update({ file_url: storagePath })
-      .eq("id", targetDocumentId);
+      .update(filePayload)
+      .eq("id", appState.documentUploadTargetId);
 
     if (updateError) {
       console.error(updateError);
-      showToast("Plik został wgrany, ale nie udało się przypisać go do dokumentu.");
+      showToast("Plik został wgrany, ale nie udało się przypisać go do dokumentu.", "error");
       appState.documentUploadTargetId = null;
       return;
+    }
+
+    if (oldPath && oldPath !== storagePath && !/^https?:\/\//i.test(oldPath)) {
+      await appState.supabase.storage.from("documents").remove([oldPath]);
     }
 
     appState.documentUploadTargetId = null;
     await loadDocuments();
     await loadDashboardStats();
+    await loadStorageUsageForSuperAdmin();
+    renderStorageLimitsList();
     showToast("Plik został dodany do dokumentu.");
     return;
   }
 
-  const hiddenPathInput = document.getElementById("documentFileUrl");
-  if (hiddenPathInput) hiddenPathInput.value = storagePath;
+  setInputValue("documentFileUrl", storagePath);
+  setInputValue("documentFileName", file.name);
+  setInputValue("documentFileSize", String(file.size));
+  setInputValue("documentFileMimeType", file.type || "");
 
   updateDocumentAttachmentUi();
   showToast("Plik został wgrany. Kliknij Zapisz, aby przypisać go do dokumentu.");
 }
+
 
 async function openCurrentDocumentFile() {
   const filePath = document.getElementById("documentFileUrl")?.value?.trim();
@@ -2972,7 +3199,10 @@ function showDocumentForm(documentEntry = null) {
   document.getElementById("documentType").value = documentEntry?.document_type || "Inne";
   document.getElementById("documentTitle").value = documentEntry?.title || "";
   document.getElementById("documentDescription").value = documentEntry?.description || "";
-  document.getElementById("documentFileUrl").value = documentEntry?.file_url || "";
+  document.getElementById("documentFileUrl").value = getDocumentFilePath(documentEntry) || "";
+  document.getElementById("documentFileName").value = getDocumentFileName(documentEntry) || "";
+  document.getElementById("documentFileSize").value = getDocumentFileSizeBytes(documentEntry) || "";
+  document.getElementById("documentFileMimeType").value = documentEntry?.file_mime_type || "";
   document.getElementById("documentNotes").value = documentEntry?.notes || "";
 
   updateDocumentAttachmentUi();
@@ -3002,6 +3232,9 @@ async function handleDocumentFormSubmit(event) {
   const title = document.getElementById("documentTitle").value.trim();
   const description = document.getElementById("documentDescription").value.trim();
   const fileUrl = document.getElementById("documentFileUrl").value.trim();
+  const fileName = document.getElementById("documentFileName").value.trim();
+  const fileSizeBytes = Number(document.getElementById("documentFileSize").value || 0);
+  const fileMimeType = document.getElementById("documentFileMimeType").value.trim();
   const notes = document.getElementById("documentNotes").value.trim();
 
   if (!title) {
@@ -3016,6 +3249,10 @@ async function handleDocumentFormSubmit(event) {
     document_type: documentType,
     description: description || null,
     file_url: fileUrl || null,
+    file_path: fileUrl || null,
+    file_name: fileName || null,
+    file_size_bytes: fileSizeBytes || null,
+    file_mime_type: fileMimeType || null,
     notes: notes || null
   };
 
@@ -3043,6 +3280,8 @@ async function handleDocumentFormSubmit(event) {
   hideDocumentForm();
   await loadDocuments();
   await loadDashboardStats();
+  await loadStorageUsageForSuperAdmin();
+  renderStorageLimitsList();
 }
 
 function handleEditDocument(documentId) {
@@ -3059,8 +3298,9 @@ function handleAddDocumentFile(documentId) {
 
 async function handleOpenDocumentFile(documentId) {
   const documentEntry = appState.documents.find((item) => item.id === documentId);
-  if (!documentEntry?.file_url) return;
-  await openDocumentFilePath(documentEntry.file_url);
+  const filePath = getDocumentFilePath(documentEntry);
+  if (!filePath) return;
+  await openDocumentFilePath(filePath);
 }
 
 async function handleDeleteDocument(documentId) {
@@ -3081,11 +3321,12 @@ async function handleDeleteDocument(documentId) {
     return;
   }
 
-  if (documentEntry.file_url && !/^https?:\/\//i.test(documentEntry.file_url)) {
+  const filePath = getDocumentFilePath(documentEntry);
+  if (filePath && !/^https?:\/\//i.test(filePath)) {
     const { error: storageError } = await appState.supabase
       .storage
       .from("documents")
-      .remove([documentEntry.file_url]);
+      .remove([filePath]);
 
     if (storageError) {
       console.warn("Nie udało się usunąć pliku z Storage:", storageError);
@@ -3094,6 +3335,8 @@ async function handleDeleteDocument(documentId) {
 
   await loadDocuments();
   await loadDashboardStats();
+  await loadStorageUsageForSuperAdmin();
+  renderStorageLimitsList();
 }
 
 window.handleEditDocument = handleEditDocument;
@@ -3184,6 +3427,7 @@ function showCircleForm(circleId = null) {
   setInputValue("managedCircleShortNameInput", circle?.short_name || "");
   setInputValue("managedCircleStatusInput", circle?.status || "active");
   setInputValue("managedCircleFeeInput", circle?.membership_fee_amount ?? 10);
+  setInputValue("managedCircleStorageLimitInput", getCircleStorageLimitMb(circle || { storage_limit_mb: 50 }));
   setInputValue("managedCircleEmailInput", circle?.contact_email || "");
   setInputValue("managedCirclePhoneInput", circle?.contact_phone || "");
   setInputValue("managedCircleNotesInput", circle?.notes || "");
@@ -3210,6 +3454,7 @@ async function handleCircleFormSubmit(event) {
     short_name: document.getElementById("managedCircleShortNameInput")?.value.trim() || null,
     status: document.getElementById("managedCircleStatusInput")?.value || "active",
     membership_fee_amount: Number(document.getElementById("managedCircleFeeInput")?.value || 0),
+    storage_limit_mb: Number(document.getElementById("managedCircleStorageLimitInput")?.value || 50),
     contact_email: document.getElementById("managedCircleEmailInput")?.value.trim() || null,
     contact_phone: document.getElementById("managedCirclePhoneInput")?.value.trim() || null,
     notes: document.getElementById("managedCircleNotesInput")?.value.trim() || null
@@ -3486,7 +3731,7 @@ function renderCirclesList() {
   }
 
   if (!appState.availableCircles.length) {
-    list.innerHTML = `<tr><td colspan="5">Brak kół w programie.</td></tr>`;
+    list.innerHTML = `<tr><td colspan="6">Brak kół w programie.</td></tr>`;
     return;
   }
 
@@ -3503,6 +3748,7 @@ function renderCirclesList() {
         </td>
         <td><span class="status-pill ${circleStatusClass(circle.status)}">${statusText}</span></td>
         <td class="amount-cell">${formatMoney(circle.membership_fee_amount || 0)}</td>
+        <td>${getCircleStorageLimitMb(circle)} MB</td>
         <td>${contact}</td>
         <td class="table-actions">
           <button type="button" onclick="switchToCircle('${circle.id}')">Przełącz</button>
@@ -3551,6 +3797,7 @@ async function toggleCircleStatus(circleId) {
   appState.circle = getActiveCircle();
   renderUserInfo();
   renderSuperAdminUi();
+  renderStorageLimitsList();
 }
 
 function circleStatusLabel(status) {
