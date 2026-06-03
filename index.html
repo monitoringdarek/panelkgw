@@ -76,6 +76,7 @@
           <button class="nav-btn" data-view="culinary">Kulinarne wspomnienia</button>
           <button class="nav-btn" data-view="documents">Dokumenty</button>
           <button class="nav-btn" data-view="admin">Administracja</button>
+          <button id="superAdminNavBtn" class="nav-btn hidden" data-view="superAdmin">Super Admin</button>
         </nav>
 
         <div class="sidebar-bottom">
@@ -91,10 +92,10 @@
             <h1 id="circleName">Ładowanie...</h1>
           </div>
 
-          <div class="user-box">
+          <button id="adminContactBtn" class="user-box contact-user-box" type="button" aria-haspopup="dialog" aria-controls="adminContactModal">
             <span id="userRole">Administrator</span>
-            <small id="userEmail">user@example.com</small>
-          </div>
+            <small>Kontakt i pomoc</small>
+          </button>
         </header>
 
         <section id="superAdminBar" class="super-admin-bar hidden">
@@ -818,7 +819,7 @@
           <div class="module-card">
             <p class="eyebrow">Moduł</p>
             <h2>Administracja</h2>
-            <p>Dane koła, ustawienia, dane testowe, wersja programu i zarządzanie kołami dla Super Admina.</p>
+            <p>Dane aktywnego koła, ustawienia, użytkownicy koła, dane testowe i wersja programu.</p>
 
             <div class="admin-info">
               <div>
@@ -870,8 +871,9 @@
                       </select>
                     </label>
                     <label>
-                      Domyślna składka
+                      Domyślna składka członkowska koła
                       <input id="circleFeeInput" type="number" min="0" step="0.01" />
+                      <small class="field-help">Kwota podpowiadana przy generowaniu składek.</small>
                     </label>
                     <label>
                       E-mail kontaktowy
@@ -893,6 +895,95 @@
                 </form>
               </div>
             </section>
+
+            <section id="circleUsersSection" class="admin-section hidden">
+              <div class="module-header compact-header">
+                <div>
+                  <p class="eyebrow">Użytkownicy</p>
+                  <h3>Użytkownicy aktywnego koła</h3>
+                  <p>Podgląd użytkowników przypisanych do koła oraz zmiana ról i statusu profilu.</p>
+                </div>
+                <button id="newCircleUserBtn" class="primary-btn" type="button">Dodaj profil użytkownika</button>
+              </div>
+
+              <div id="circleUserFormBox" class="form-box hidden">
+                <h3 id="circleUserFormTitle">Dodaj profil użytkownika</h3>
+                <form id="circleUserForm" class="data-form">
+                  <input id="circleUserIdInput" type="hidden" />
+                  <div class="form-grid">
+                    <label>
+                      UID użytkownika z Supabase Auth
+                      <input id="circleUserUidInput" type="text" required placeholder="np. 0d16e490-..." />
+                      <small class="field-help">Najpierw utwórz konto w Supabase Authentication, potem wklej tutaj UID.</small>
+                    </label>
+                    <label>
+                      Nazwa / imię
+                      <input id="circleUserDisplayNameInput" type="text" required />
+                    </label>
+                    <label>
+                      E-mail
+                      <input id="circleUserEmailInput" type="email" />
+                    </label>
+                    <label>
+                      Rola
+                      <select id="circleUserRoleInput">
+                        <option value="circle_admin">Administrator koła</option>
+                        <option value="staff">Pracownik / Zarząd</option>
+                        <option value="accountant_readonly">Księgowa / podgląd</option>
+                      </select>
+                    </label>
+                    <label>
+                      Status
+                      <select id="circleUserActiveInput">
+                        <option value="true">Aktywny</option>
+                        <option value="false">Zablokowany</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="form-actions">
+                    <button type="submit" class="primary-btn">Zapisz profil</button>
+                    <button id="cancelCircleUserBtn" type="button" class="secondary-btn">Anuluj</button>
+                  </div>
+                </form>
+              </div>
+
+              <div class="list-toolbar">
+                <p class="muted">Konta logowania tworzymy w Supabase Auth. Tutaj przypisujemy je do koła i nadajemy rolę.</p>
+                <div class="toolbar-actions">
+                  <button id="refreshCircleUsersBtn" class="secondary-btn" type="button">Odśwież</button>
+                  <span id="circleUsersCountLabel">0 użytkowników</span>
+                </div>
+              </div>
+
+              <div class="table-wrapper">
+                <table class="data-table users-table">
+                  <thead>
+                    <tr>
+                      <th>Użytkownik</th>
+                      <th>E-mail</th>
+                      <th>Rola</th>
+                      <th>Status</th>
+                      <th class="actions-cell">Akcje</th>
+                    </tr>
+                  </thead>
+                  <tbody id="circleUsersList">
+                    <tr>
+                      <td colspan="5">Ładowanie użytkowników...</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </section>
+
+
+          </div>
+        </section>
+
+        <section id="superAdminView" class="view">
+          <div class="module-card">
+            <p class="eyebrow">Administrator programu</p>
+            <h2>Super Admin</h2>
+            <p>Centrum zarządzania całym programem: koła, limity, logi, narzędzia i informacje techniczne.</p>
 
             <section id="superAdminCirclesSection" class="admin-section hidden">
               <div class="module-header compact-header">
@@ -926,8 +1017,9 @@
                       </select>
                     </label>
                     <label>
-                      Domyślna składka
+                      Domyślna składka członkowska koła
                       <input id="managedCircleFeeInput" type="number" min="0" step="0.01" />
+                      <small class="field-help">Kwota podpowiadana przy generowaniu składek.</small>
                     </label>
                     <label>
                       E-mail kontaktowy
@@ -968,10 +1060,88 @@
                 </table>
               </div>
             </section>
+
+            <section class="admin-section">
+              <div class="module-header compact-header">
+                <div>
+                  <p class="eyebrow">Limity miejsca</p>
+                  <h3>Limity dokumentów</h3>
+                  <p>Tu dodamy limity przestrzeni dyskowej dla kół, np. 50 MB na koło oraz licznik procentowy.</p>
+                </div>
+              </div>
+              <div class="module-card soft-placeholder">
+                <p class="muted">Miejsce przygotowane pod kolejny etap: limit dokumentów i wskaźnik użycia miejsca.</p>
+              </div>
+            </section>
+
+            <section class="admin-section">
+              <div class="module-header compact-header">
+                <div>
+                  <p class="eyebrow">Logi</p>
+                  <h3>Logi programu</h3>
+                  <p>Tu później pojawią się ważne zdarzenia: logowania, zmiany ról, dodanie dokumentu, anulowanie wpisu.</p>
+                </div>
+              </div>
+              <div class="module-card soft-placeholder">
+                <p class="muted">Miejsce przygotowane pod logi i diagnostykę programu.</p>
+              </div>
+            </section>
+
+            <section class="admin-section">
+              <div class="module-header compact-header">
+                <div>
+                  <p class="eyebrow">Narzędzia</p>
+                  <h3>Narzędzia techniczne</h3>
+                  <p>Tu później dodamy porządki techniczne, eksporty i narzędzia naprawcze.</p>
+                </div>
+              </div>
+              <div class="admin-info">
+                <div>
+                  <span>Wersja programu</span>
+                  <strong id="superAdminVersion"></strong>
+                </div>
+                <div>
+                  <span>Adres strony</span>
+                  <strong>GitHub Pages / Supabase</strong>
+                </div>
+              </div>
+            </section>
           </div>
         </section>
       </section>
     </main>
+  </div>
+
+  <div id="toastContainer" class="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <div id="adminContactModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="adminContactTitle">
+    <section class="contact-modal">
+      <button id="adminContactCloseX" class="modal-x" type="button" aria-label="Zamknij">×</button>
+      <p class="eyebrow">Kontakt</p>
+      <h2 id="adminContactTitle">Kontakt z administratorem</h2>
+      <p class="muted">W razie problemów z panelem, logowaniem albo dostępem do konta skontaktuj się z administratorem programu.</p>
+
+      <div class="contact-details">
+        <div>
+          <span>Telefon</span>
+          <strong>501 608 693</strong>
+        </div>
+        <div>
+          <span>E-mail</span>
+          <strong>dariuszwawrzynek@gmail.com</strong>
+        </div>
+        <div>
+          <span>Preferowany kontakt</span>
+          <strong>Telefoniczny</strong>
+        </div>
+      </div>
+
+      <div class="modal-actions">
+        <a class="primary-btn contact-action" href="tel:+48501608693">Zadzwoń</a>
+        <a class="secondary-btn contact-action" href="mailto:dariuszwawrzynek@gmail.com">Napisz e-mail</a>
+        <button id="adminContactCloseBtn" class="secondary-btn" type="button">Zamknij</button>
+      </div>
+    </section>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>

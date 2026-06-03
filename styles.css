@@ -1528,3 +1528,330 @@ input {
     min-width: 0;
   }
 }
+
+
+/* =========================================================
+   POWIADOMIENIA / TOASTY
+   ========================================================= */
+
+.toast-container {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  z-index: 9999;
+  display: grid;
+  gap: 12px;
+  width: min(420px, calc(100vw - 32px));
+  pointer-events: none;
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: start;
+  gap: 12px;
+  padding: 14px 14px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 18px 42px rgba(68, 75, 61, 0.16);
+  color: var(--text);
+  pointer-events: auto;
+  animation: toastIn 0.22s ease-out;
+}
+
+.toast-hide {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.toast-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-weight: 900;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.toast-body {
+  line-height: 1.45;
+  font-weight: 750;
+  padding-top: 5px;
+}
+
+.toast-close {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 3px 4px;
+}
+
+.toast-close:hover {
+  color: var(--text);
+}
+
+.toast-success {
+  border-color: rgba(111, 143, 114, 0.45);
+}
+
+.toast-success .toast-icon {
+  background: #e8f3e4;
+  color: #3e6d46;
+}
+
+.toast-error {
+  border-color: rgba(182, 75, 75, 0.35);
+}
+
+.toast-error .toast-icon {
+  background: #f5e1e0;
+  color: var(--danger);
+}
+
+.toast-info .toast-icon {
+  background: #e8f1fb;
+  color: #335a7b;
+}
+
+.field-help {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+@keyframes toastIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 700px) {
+  .toast-container {
+    top: 12px;
+    right: 12px;
+    left: 12px;
+    width: auto;
+  }
+}
+
+
+/* =========================================================
+   v2026.06.03-05 — kontakt administratora i przewijane tabele
+   ========================================================= */
+
+.contact-user-box {
+  appearance: none;
+  -webkit-appearance: none;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.contact-user-box:hover {
+  transform: translateY(-1px);
+  border-color: rgba(111, 143, 114, 0.45);
+  box-shadow: 0 14px 34px rgba(68, 75, 61, 0.12);
+}
+
+.contact-user-box:focus-visible {
+  outline: 4px solid rgba(111, 143, 114, 0.18);
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 22px;
+  background: rgba(47, 58, 48, 0.42);
+  backdrop-filter: blur(4px);
+}
+
+.contact-modal {
+  position: relative;
+  width: min(560px, 100%);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 26px;
+  box-shadow: 0 26px 80px rgba(47, 58, 48, 0.22);
+}
+
+.contact-modal h2 {
+  margin: 0 0 10px;
+  font-size: 28px;
+}
+
+.modal-x {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--card-soft);
+  color: var(--muted);
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modal-x:hover {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.contact-details {
+  display: grid;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.contact-details div {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--card-soft);
+}
+
+.contact-details span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 750;
+  margin-bottom: 5px;
+}
+
+.contact-details strong {
+  display: block;
+  font-size: 17px;
+  word-break: break-word;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.contact-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+/* Przewijane tabele: członkowie, składki, finanse, dokumenty, kulinarne i koła */
+.table-wrapper {
+  max-height: 540px !important;
+  overflow: auto !important;
+  scrollbar-gutter: stable;
+}
+
+.data-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.data-table th,
+.data-table td {
+  white-space: nowrap;
+}
+
+.data-table td:nth-child(1),
+.data-table td:nth-child(3),
+.data-table td:nth-child(5),
+.data-table td:nth-child(6),
+.data-table td:nth-child(7),
+.data-table td:nth-child(8) {
+  white-space: normal;
+}
+
+.table-note,
+.clamped-text,
+.dish-detail-box {
+  white-space: normal;
+}
+
+@media (max-width: 700px) {
+  .contact-modal {
+    padding: 22px;
+    border-radius: 22px;
+  }
+
+  .modal-actions {
+    display: grid;
+  }
+
+  .table-wrapper {
+    max-height: 480px !important;
+  }
+}
+
+/* =========================================================
+   ADMINISTRACJA UŻYTKOWNIKÓW / ROLE
+   ========================================================= */
+
+.users-table .member-name {
+  font-size: 16px;
+}
+
+.role-pill {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+}
+
+.field-help {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+button.hidden,
+.action-grid button.hidden {
+  display: none !important;
+}
+
+/* =========================================================
+   SUPER ADMIN - osobna zakładka programu
+   ========================================================= */
+
+.soft-placeholder {
+  background: var(--card-soft);
+  box-shadow: none;
+  margin-top: 12px;
+}
+
+#superAdminView .admin-section {
+  margin-top: 22px;
+}
+
+#superAdminNavBtn.hidden {
+  display: none !important;
+}

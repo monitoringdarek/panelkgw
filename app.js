@@ -56,16 +56,17 @@ function setupVersionLabels() {
   setText("loginVersion", version);
   setText("sidebarVersion", version);
   setText("adminVersion", version);
+  setText("superAdminVersion", version);
 }
 
 function setupSupabase() {
   if (!window.supabase) {
-    alert("Nie załadowano biblioteki Supabase.");
+    showToast("Nie załadowano biblioteki Supabase.");
     return;
   }
 
   if (!config.SUPABASE_URL || !config.SUPABASE_KEY || config.SUPABASE_KEY.includes("TU_WKLEJ")) {
-    alert("Uzupełnij config.js: SUPABASE_URL i SUPABASE_KEY.");
+    showToast("Uzupełnij config.js: SUPABASE_URL i SUPABASE_KEY.");
     return;
   }
 
@@ -104,6 +105,14 @@ function setupEvents() {
   const newCircleBtn = document.getElementById("newCircleBtn");
   const circleForm = document.getElementById("circleForm");
   const cancelCircleBtn = document.getElementById("cancelCircleBtn");
+  const adminContactBtn = document.getElementById("adminContactBtn");
+  const adminContactCloseBtn = document.getElementById("adminContactCloseBtn");
+  const adminContactCloseX = document.getElementById("adminContactCloseX");
+  const adminContactModal = document.getElementById("adminContactModal");
+  const newCircleUserBtn = document.getElementById("newCircleUserBtn");
+  const circleUserForm = document.getElementById("circleUserForm");
+  const cancelCircleUserBtn = document.getElementById("cancelCircleUserBtn");
+  const refreshCircleUsersBtn = document.getElementById("refreshCircleUsersBtn");
 
   loginForm?.addEventListener("submit", handleLogin);
   logoutBtn?.addEventListener("click", handleLogout);
@@ -126,13 +135,23 @@ function setupEvents() {
   insertTestDataBtn?.addEventListener("click", insertTestData);
   clearTestDataBtn?.addEventListener("click", clearTestData);
   activeCircleSelect?.addEventListener("change", handleActiveCircleChange);
-  manageCirclesBtn?.addEventListener("click", () => showView("admin"));
+  manageCirclesBtn?.addEventListener("click", () => showView("superAdmin"));
   editActiveCircleBtn?.addEventListener("click", showActiveCircleForm);
   activeCircleForm?.addEventListener("submit", handleActiveCircleFormSubmit);
   cancelActiveCircleEditBtn?.addEventListener("click", hideActiveCircleForm);
   newCircleBtn?.addEventListener("click", () => showCircleForm());
   circleForm?.addEventListener("submit", handleCircleFormSubmit);
   cancelCircleBtn?.addEventListener("click", hideCircleForm);
+  adminContactBtn?.addEventListener("click", showAdminContactModal);
+  adminContactCloseBtn?.addEventListener("click", hideAdminContactModal);
+  adminContactCloseX?.addEventListener("click", hideAdminContactModal);
+  adminContactModal?.addEventListener("click", (event) => {
+    if (event.target === adminContactModal) hideAdminContactModal();
+  });
+  newCircleUserBtn?.addEventListener("click", () => showCircleUserForm());
+  circleUserForm?.addEventListener("submit", handleCircleUserFormSubmit);
+  cancelCircleUserBtn?.addEventListener("click", hideCircleUserForm);
+  refreshCircleUsersBtn?.addEventListener("click", loadCircleUsers);
 
   const newFinanceEntryBtn = document.getElementById("newFinanceEntryBtn");
   const refreshFinanceBtn = document.getElementById("refreshFinanceBtn");
@@ -314,7 +333,7 @@ async function loadProfileAndCircle() {
 
   if (profileError) {
     console.error(profileError);
-    alert("Nie udało się pobrać profilu użytkownika. Sprawdź tabelę profiles i RLS.");
+    showToast("Nie udało się pobrać profilu użytkownika. Sprawdź tabelę profiles i RLS.");
     throw profileError;
   }
 
@@ -329,6 +348,26 @@ async function loadProfileAndCircle() {
 
 function isSuperAdmin() {
   return appState.profile?.role === "super_admin";
+}
+
+function canWriteData() {
+  return ["super_admin", "circle_admin", "staff"].includes(appState.profile?.role);
+}
+
+function canManageCircleSettings() {
+  return ["super_admin", "circle_admin"].includes(appState.profile?.role);
+}
+
+function canManageUsers() {
+  return ["super_admin", "circle_admin"].includes(appState.profile?.role);
+}
+
+function isReadonlyUser() {
+  return appState.profile?.role === "accountant_readonly";
+}
+
+function getCurrentUserEmail() {
+  return appState.user?.email || appState.profile?.email || "";
 }
 
 function getActiveCircleId() {
@@ -354,7 +393,7 @@ async function loadAvailableCircles() {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się pobrać listy kół.");
+      showToast("Nie udało się pobrać listy kół.");
       appState.availableCircles = [];
       return;
     }
@@ -376,7 +415,7 @@ async function loadAvailableCircles() {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się pobrać danych koła.");
+    showToast("Nie udało się pobrać danych koła.");
     appState.availableCircles = [];
     return;
   }
@@ -424,36 +463,71 @@ async function loadAllCircleData() {
   await loadFinances();
   await loadCulinaryEvents();
   await loadDocuments();
+  await loadCircleUsers();
   renderCirclesList();
+  updatePermissionUi();
 }
 
 function renderUserInfo() {
   const profile = appState.profile;
   const circle = getActiveCircle();
-  const email = appState.user?.email || profile?.email || "user@example.com";
-
   appState.circle = circle;
 
   setText("circleName", circle?.name || "Panel KGW");
   setText("userRole", "Administrator");
-  setText("userEmail", email);
   setText("adminRole", roleLabel(profile?.role));
   setText("adminCircleId", getActiveCircleId() || "Brak aktywnego koła");
+  updatePermissionUi();
+}
+
+function updatePermissionUi() {
+  const writable = canWriteData();
+  const circleSettings = canManageCircleSettings();
+  const usersAdmin = canManageUsers();
+
+  const writeIds = [
+    "newMemberBtn",
+    "newContributionBtn",
+    "generateContributionsBtn",
+    "newFinanceEntryBtn",
+    "newCulinaryEventBtn",
+    "newCulinaryDishBtn",
+    "newDocumentBtn",
+    "insertTestDataBtn",
+    "clearTestDataBtn"
+  ];
+
+  writeIds.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle("hidden", !writable);
+  });
+
+  document.querySelectorAll(".action-grid button").forEach((btn) => {
+    btn.classList.toggle("hidden", !writable);
+  });
+
+  document.getElementById("editActiveCircleBtn")?.classList.toggle("hidden", !circleSettings);
+  document.getElementById("activeCircleFormBox")?.classList.toggle("hidden", true);
+
+  document.getElementById("circleUsersSection")?.classList.toggle("hidden", !usersAdmin);
 }
 
 function renderSuperAdminUi() {
   const superBar = document.getElementById("superAdminBar");
   const section = document.getElementById("superAdminCirclesSection");
   const select = document.getElementById("activeCircleSelect");
+  const navBtn = document.getElementById("superAdminNavBtn");
 
   if (!isSuperAdmin()) {
     superBar?.classList.add("hidden");
     section?.classList.add("hidden");
+    navBtn?.classList.add("hidden");
     return;
   }
 
   superBar?.classList.remove("hidden");
   section?.classList.remove("hidden");
+  navBtn?.classList.remove("hidden");
 
   if (select) {
     select.innerHTML = appState.availableCircles.map((circle) => `
@@ -819,9 +893,14 @@ function renderContributionsList() {
               const periodLabel = entry.period_label || `${monthLabel(entry.contribution_month)} ${entry.contribution_year}`;
               const paidAt = entry.paid_at ? formatDate(entry.paid_at) : "-";
 
-              const payButton = entry.status === "due"
+              const payButton = canWriteData() && entry.status === "due"
                 ? `<button type="button" onclick="window.markContributionPaid('${entry.id}')">Oznacz jako zapłacone</button>`
                 : "";
+              const contributionActions = canWriteData()
+                ? `${payButton}
+                    <button type="button" onclick="window.handleEditContribution('${entry.id}')">Edytuj</button>
+                    <button type="button" onclick="window.handleCancelContribution('${entry.id}')" class="secondary">Anuluj wpis</button>`
+                : `<span class="muted">Podgląd</span>`;
 
               return `
                 <tr>
@@ -833,9 +912,7 @@ function renderContributionsList() {
                   <td>${escapeHtml(paidAt)}</td>
                   <td>${escapeHtml(entry.notes || "-")}</td>
                   <td class="table-actions">
-                    ${payButton}
-                    <button type="button" onclick="window.handleEditContribution('${entry.id}')">Edytuj</button>
-                    <button type="button" onclick="window.handleCancelContribution('${entry.id}')" class="secondary">Anuluj wpis</button>
+                    ${contributionActions}
                   </td>
                 </tr>`;
             })
@@ -875,7 +952,7 @@ async function handleContributionFormSubmit(event) {
 
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak przypisanego koła. Nie można zapisać składki.");
+    showToast("Brak przypisanego koła. Nie można zapisać składki.");
     return;
   }
 
@@ -890,11 +967,11 @@ async function handleContributionFormSubmit(event) {
   const notes = document.getElementById("contributionNotes").value.trim();
 
   if (!memberId) {
-    alert("Wybierz członka do przypisania składki.");
+    showToast("Wybierz członka do przypisania składki.");
     return;
   }
   if (!year || !month || Number.isNaN(amount)) {
-    alert("Podaj poprawny rok, miesiąc i kwotę składki.");
+    showToast("Podaj poprawny rok, miesiąc i kwotę składki.");
     return;
   }
 
@@ -920,7 +997,7 @@ async function handleContributionFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się zaktualizować składki.");
+      showToast("Nie udało się zaktualizować składki.");
       return;
     }
     contributionId = appState.editingContribution;
@@ -940,7 +1017,7 @@ async function handleContributionFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się dodać składki.");
+      showToast("Nie udało się dodać składki.");
       return;
     }
 
@@ -962,7 +1039,7 @@ async function handleContributionFormSubmit(event) {
 async function generateContributionsForPeriod() {
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak przypisanego koła.");
+    showToast("Brak przypisanego koła.");
     return;
   }
 
@@ -980,7 +1057,7 @@ async function generateContributionsForPeriod() {
 
   const activeMembers = (appState.members || []).filter((m) => m.member_status === "active");
   if (!activeMembers.length) {
-    alert("Brak aktywnych członków.");
+    showToast("Brak aktywnych członków.");
     return;
   }
 
@@ -995,7 +1072,7 @@ async function generateContributionsForPeriod() {
 
   if (existErr) {
     console.error(existErr);
-    alert("Błąd przy sprawdzaniu istniejących składek.");
+    showToast("Błąd przy sprawdzaniu istniejących składek.");
     return;
   }
 
@@ -1024,7 +1101,7 @@ async function generateContributionsForPeriod() {
   }
 
   const skipped = activeMembers.length - created;
-  alert(`Utworzono ${created} składek. Pominięto ${skipped} istniejących wpisów.`);
+  showToast(`Utworzono ${created} składek. Pominięto ${skipped} istniejących wpisów.`);
 
   await loadContributions();
   await loadDashboardStats();
@@ -1046,7 +1123,7 @@ async function markContributionPaid(contributionId) {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się oznaczyć składki jako zapłacone.");
+    showToast("Nie udało się oznaczyć składki jako zapłacone.");
     return;
   }
 
@@ -1150,7 +1227,7 @@ async function handleCancelContribution(contributionId) {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się anulować wpisu składki.");
+    showToast("Nie udało się anulować wpisu składki.");
     return;
   }
 
@@ -1259,17 +1336,21 @@ function renderMembersList() {
               const statusLabel = member.member_status === "inactive" ? "Nieaktywna" : "Aktywna";
               const toggleLabel = member.member_status === "inactive" ? "Przywróć aktywną" : "Oznacz nieaktywną";
 
+              const actions = canWriteData()
+                ? `<button type="button" onclick="window.handleEditMember('${member.id}')">Edytuj</button>
+                   <button type="button" onclick="window.handleToggleMemberStatus('${member.id}')" class="secondary">${toggleLabel}</button>`
+                : `<span class="muted">Podgląd</span>`;
+
               return `
                 <tr>
-                  <td><strong>${escapeHtml(member.first_name)} ${escapeHtml(member.last_name)}</strong></td>
+                  <td><span class="member-name">${escapeHtml(member.first_name)} ${escapeHtml(member.last_name)}</span></td>
                   <td>${escapeHtml(member.phone || "-")}</td>
                   <td>${escapeHtml(member.email || "-")}</td>
                   <td>${escapeHtml(member.function_in_circle || "-")}</td>
                   <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
                   <td>${escapeHtml(member.notes || "-")}</td>
                   <td class="table-actions">
-                    <button type="button" onclick="window.handleEditMember('${member.id}')">Edytuj</button>
-                    <button type="button" onclick="window.handleToggleMemberStatus('${member.id}')" class="secondary">${toggleLabel}</button>
+                    ${actions}
                   </td>
                 </tr>`;
             })
@@ -1305,7 +1386,7 @@ async function handleMemberFormSubmit(event) {
 
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak przypisanego koła. Nie można zapisać członka.");
+    showToast("Brak przypisanego koła. Nie można zapisać członka.");
     return;
   }
 
@@ -1318,7 +1399,7 @@ async function handleMemberFormSubmit(event) {
   const notes = document.getElementById("memberNotes").value.trim();
 
   if (!firstName || !lastName) {
-    alert("Podaj imię i nazwisko członka.");
+    showToast("Podaj imię i nazwisko członka.");
     return;
   }
 
@@ -1341,7 +1422,7 @@ async function handleMemberFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się zaktualizować członka.");
+      showToast("Nie udało się zaktualizować członka.");
       return;
     }
   } else {
@@ -1349,7 +1430,7 @@ async function handleMemberFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się dodać członka.");
+      showToast("Nie udało się dodać członka.");
       return;
     }
   }
@@ -1377,7 +1458,7 @@ async function handleToggleMemberStatus(memberId) {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się zmienić statusu członka.");
+    showToast("Nie udało się zmienić statusu członka.");
     return;
   }
 
@@ -1395,7 +1476,7 @@ window.clearTestData = clearTestData;
 async function insertTestData() {
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak przypisanego koła. Nie można dodać danych testowych.");
+    showToast("Brak przypisanego koła. Nie można dodać danych testowych.");
     return;
   }
 
@@ -1441,7 +1522,7 @@ async function insertTestData() {
     const { error } = await appState.supabase.from("members").insert(membersToInsert);
     if (error) {
       console.error(error);
-      alert("Nie udało się dodać danych testowych członków.");
+      showToast("Nie udało się dodać danych testowych członków.");
       return;
     }
   }
@@ -1488,7 +1569,7 @@ async function insertTestData() {
 
   if (conQuery.error) {
     console.error(conQuery.error);
-    alert("Nie udało się sprawdzić istniejących danych testowych składek.");
+    showToast("Nie udało się sprawdzić istniejących danych testowych składek.");
     return;
   }
 
@@ -1524,7 +1605,7 @@ async function insertTestData() {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się dodać danych testowych składek.");
+      showToast("Nie udało się dodać danych testowych składek.");
       return;
     }
 
@@ -1538,13 +1619,13 @@ async function insertTestData() {
   await loadContributions();
   await loadDashboardStats();
   await refreshFinanceBalance();
-  alert("Dane testowe zostały dodane lub już istnieją.");
+  showToast("Dane testowe zostały dodane lub już istnieją.");
 }
 
 async function clearTestData() {
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak przypisanego koła. Nie można usunąć danych testowych.");
+    showToast("Brak przypisanego koła. Nie można usunąć danych testowych.");
     return;
   }
 
@@ -1556,7 +1637,7 @@ async function clearTestData() {
 
   if (contributionsError) {
     console.error(contributionsError);
-    alert("Nie udało się pobrać danych testowych składek.");
+    showToast("Nie udało się pobrać danych testowych składek.");
     return;
   }
 
@@ -1590,7 +1671,7 @@ async function clearTestData() {
 
   if (deleteContributionsError) {
     console.error(deleteContributionsError);
-    alert("Nie udało się usunąć danych testowych składek.");
+    showToast("Nie udało się usunąć danych testowych składek.");
     return;
   }
 
@@ -1602,7 +1683,7 @@ async function clearTestData() {
 
   if (deleteMembersError) {
     console.error(deleteMembersError);
-    alert("Nie udało się usunąć danych testowych członków.");
+    showToast("Nie udało się usunąć danych testowych członków.");
     return;
   }
 
@@ -1610,7 +1691,7 @@ async function clearTestData() {
   await loadContributions();
   await loadDashboardStats();
   await refreshFinanceBalance();
-  alert("Dane testowe zostały usunięte.");
+  showToast("Dane testowe zostały usunięte.");
 }
 
 async function loadFinances() {
@@ -1768,8 +1849,8 @@ function renderFinanceList() {
               const sourceLabel = financeSourceLabel(entry.source_type);
               const amountDisplay = entry.type === "income" ? formatMoney(entry.amount) : `−${formatMoney(entry.amount)}`;
               const isManualEntry = !entry.source_type || entry.source_type.trim() === "";
-              const canEdit = isManualEntry;
-              const canCancel = entry.status === "active" && isManualEntry;
+              const canEdit = canWriteData() && isManualEntry;
+              const canCancel = canWriteData() && entry.status === "active" && isManualEntry;
 
               let editButton = "";
               if (canEdit) {
@@ -1781,6 +1862,9 @@ function renderFinanceList() {
               let cancelButton = "";
               if (canCancel) {
                 cancelButton = `<button type="button" onclick="window.handleCancelFinanceEntryFull('${entry.id}')" class="secondary">Anuluj</button>`;
+              }
+              if (!canWriteData() && isManualEntry) {
+                editButton = `<span class="muted">Podgląd</span>`;
               }
 
               return `
@@ -1834,7 +1918,7 @@ async function handleFinanceFormSubmit(event) {
 
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak przypisanego koła. Nie można zapisać wpisu finansowego.");
+    showToast("Brak przypisanego koła. Nie można zapisać wpisu finansowego.");
     return;
   }
 
@@ -1848,7 +1932,7 @@ async function handleFinanceFormSubmit(event) {
   const notes = document.getElementById("financeNotes").value.trim();
 
   if (!entryDate || !category || !description || !amount || amount <= 0) {
-    alert("Uzupełnij wszystkie wymagane pola.");
+    showToast("Uzupełnij wszystkie wymagane pola.");
     return;
   }
 
@@ -1874,7 +1958,7 @@ async function handleFinanceFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się zaktualizować wpisu finansowego.");
+      showToast("Nie udało się zaktualizować wpisu finansowego.");
       return;
     }
   } else {
@@ -1882,7 +1966,7 @@ async function handleFinanceFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się dodać wpisu finansowego.");
+      showToast("Nie udało się dodać wpisu finansowego.");
       return;
     }
   }
@@ -1928,7 +2012,7 @@ async function handleCancelFinanceEntryFull(entryId) {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się anulować wpisu finansowego.");
+    showToast("Nie udało się anulować wpisu finansowego.");
     return;
   }
 
@@ -1998,7 +2082,7 @@ async function loadCulinaryEvents() {
 
   if (dishesError) {
     console.error(dishesError);
-    alert("Nie udało się pobrać potraw.");
+    showToast("Nie udało się pobrać potraw.");
     return;
   }
 
@@ -2084,6 +2168,14 @@ function renderCulinaryEventsList() {
             const dishesCount = getDishesForEvent(event.id).length;
             const selectedClass = event.id === appState.selectedCulinaryEventId ? "selected-row" : "";
 
+            const eventActions = canWriteData()
+              ? `<button type="button" onclick="window.handleSelectCulinaryEvent('${event.id}')">Potrawy</button>
+                 <button type="button" onclick="window.handleEditCulinaryEvent('${event.id}')">Edytuj</button>
+                 <button type="button" onclick="window.handlePrintCulinaryEvent('${event.id}')" class="secondary">Drukuj</button>
+                 <button type="button" onclick="window.handleDeleteCulinaryEvent('${event.id}')" class="secondary">Usuń</button>`
+              : `<button type="button" onclick="window.handleSelectCulinaryEvent('${event.id}')">Potrawy</button>
+                 <button type="button" onclick="window.handlePrintCulinaryEvent('${event.id}')" class="secondary">Drukuj</button>`;
+
             return `
               <tr class="${selectedClass}">
                 <td>${escapeHtml(formatDate(event.event_date))}</td>
@@ -2096,10 +2188,7 @@ function renderCulinaryEventsList() {
                 <td>${escapeHtml(event.description || "-")}</td>
                 <td class="table-actions">
                   <span class="actions-wrap">
-                    <button type="button" onclick="window.handleSelectCulinaryEvent('${event.id}')">Potrawy</button>
-                    <button type="button" onclick="window.handleEditCulinaryEvent('${event.id}')">Edytuj</button>
-                    <button type="button" onclick="window.handlePrintCulinaryEvent('${event.id}')" class="secondary">Drukuj</button>
-                    <button type="button" onclick="window.handleDeleteCulinaryEvent('${event.id}')" class="secondary">Usuń</button>
+                    ${eventActions}
                   </span>
                 </td>
               </tr>`;
@@ -2195,6 +2284,11 @@ function renderCulinaryDishesList() {
         <tbody>
           ${dishes.map((dish) => {
             const selectedClass = dish.id === appState.selectedCulinaryDishId ? "selected-row" : "";
+            const dishActions = canWriteData()
+              ? `<button type="button" onclick="window.handleShowCulinaryDishDetails('${dish.id}')">Szczegóły</button>
+                 <button type="button" onclick="window.handleEditCulinaryDish('${dish.id}')">Edytuj</button>
+                 <button type="button" onclick="window.handleDeleteCulinaryDish('${dish.id}')" class="secondary">Usuń</button>`
+              : `<button type="button" onclick="window.handleShowCulinaryDishDetails('${dish.id}')">Szczegóły</button>`;
             return `
               <tr class="${selectedClass}">
                 <td><span class="member-name">${escapeHtml(dish.name || "Bez nazwy")}</span></td>
@@ -2204,9 +2298,7 @@ function renderCulinaryDishesList() {
                 <td><span class="table-clamp clamp-1">${escapeHtml(dish.notes || "-")}</span></td>
                 <td class="table-actions">
                   <span class="actions-wrap">
-                    <button type="button" onclick="window.handleShowCulinaryDishDetails('${dish.id}')">Szczegóły</button>
-                    <button type="button" onclick="window.handleEditCulinaryDish('${dish.id}')">Edytuj</button>
-                    <button type="button" onclick="window.handleDeleteCulinaryDish('${dish.id}')" class="secondary">Usuń</button>
+                    ${dishActions}
                   </span>
                 </td>
               </tr>`;
@@ -2273,13 +2365,13 @@ async function handleCulinaryEventFormSubmit(event) {
 
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak przypisanego koła. Nie można zapisać wydarzenia.");
+    showToast("Brak przypisanego koła. Nie można zapisać wydarzenia.");
     return;
   }
 
   const title = document.getElementById("culinaryEventTitle").value.trim();
   if (!title) {
-    alert("Podaj nazwę wydarzenia.");
+    showToast("Podaj nazwę wydarzenia.");
     return;
   }
 
@@ -2302,7 +2394,7 @@ async function handleCulinaryEventFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się zaktualizować wydarzenia.");
+      showToast("Nie udało się zaktualizować wydarzenia.");
       return;
     }
   } else {
@@ -2314,7 +2406,7 @@ async function handleCulinaryEventFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się dodać wydarzenia.");
+      showToast("Nie udało się dodać wydarzenia.");
       return;
     }
 
@@ -2354,7 +2446,7 @@ async function handleDeleteCulinaryEvent(eventId) {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się usunąć wydarzenia.");
+    showToast("Nie udało się usunąć wydarzenia.");
     return;
   }
 
@@ -2367,7 +2459,7 @@ async function handleDeleteCulinaryEvent(eventId) {
 
 function showCulinaryDishForm(dishEntry = null) {
   if (!appState.selectedCulinaryEventId) {
-    alert("Najpierw wybierz wydarzenie.");
+    showToast("Najpierw wybierz wydarzenie.");
     return;
   }
 
@@ -2397,13 +2489,13 @@ async function handleCulinaryDishFormSubmit(event) {
   const eventId = appState.selectedCulinaryEventId;
 
   if (!circleId || !eventId) {
-    alert("Brak wybranego wydarzenia. Nie można zapisać potrawy.");
+    showToast("Brak wybranego wydarzenia. Nie można zapisać potrawy.");
     return;
   }
 
   const name = document.getElementById("culinaryDishName").value.trim();
   if (!name) {
-    alert("Podaj nazwę potrawy.");
+    showToast("Podaj nazwę potrawy.");
     return;
   }
 
@@ -2425,7 +2517,7 @@ async function handleCulinaryDishFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się zaktualizować potrawy.");
+      showToast("Nie udało się zaktualizować potrawy.");
       return;
     }
   } else {
@@ -2435,7 +2527,7 @@ async function handleCulinaryDishFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się dodać potrawy.");
+      showToast("Nie udało się dodać potrawy.");
       return;
     }
   }
@@ -2474,7 +2566,7 @@ async function handleDeleteCulinaryDish(dishId) {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się usunąć potrawy.");
+    showToast("Nie udało się usunąć potrawy.");
     return;
   }
 
@@ -2711,7 +2803,11 @@ function renderDocumentsList() {
               const hasFile = Boolean(doc.file_url);
               const linkCell = hasFile
                 ? `<button type="button" onclick="window.handleOpenDocumentFile('${doc.id}')">Otwórz</button>`
-                : `<button type="button" onclick="window.handleAddDocumentFile('${doc.id}')" class="secondary">Dodaj</button>`;
+                : (canWriteData() ? `<button type="button" onclick="window.handleAddDocumentFile('${doc.id}')" class="secondary">Dodaj</button>` : `<span class="muted">Brak pliku</span>`);
+              const documentActions = canWriteData()
+                ? `<button type="button" onclick="window.handleEditDocument('${doc.id}')">Edytuj</button>
+                   <button type="button" onclick="window.handleDeleteDocument('${doc.id}')" class="secondary">Usuń</button>`
+                : `<span class="muted">Podgląd</span>`;
 
               return `
                 <tr>
@@ -2725,8 +2821,7 @@ function renderDocumentsList() {
                   <td>${escapeHtml(doc.notes || "-")}</td>
                   <td class="table-actions">
                     <span class="actions-wrap">
-                      <button type="button" onclick="window.handleEditDocument('${doc.id}')">Edytuj</button>
-                      <button type="button" onclick="window.handleDeleteDocument('${doc.id}')" class="secondary">Usuń</button>
+                      ${documentActions}
                     </span>
                   </td>
                 </tr>`;
@@ -2772,7 +2867,7 @@ async function handleDocumentFileSelected(event) {
 
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak przypisanego koła. Nie można dodać pliku.");
+    showToast("Brak przypisanego koła. Nie można dodać pliku.");
     return;
   }
 
@@ -2792,7 +2887,7 @@ async function handleDocumentFileSelected(event) {
 
   if (uploadError) {
     console.error(uploadError);
-    alert("Nie udało się wgrać pliku. Sprawdź, czy w Supabase istnieje bucket documents i polityki dostępu.");
+    showToast("Nie udało się wgrać pliku. Sprawdź, czy w Supabase istnieje bucket documents i polityki dostępu.");
     updateDocumentAttachmentUi();
     return;
   }
@@ -2807,7 +2902,7 @@ async function handleDocumentFileSelected(event) {
 
     if (updateError) {
       console.error(updateError);
-      alert("Plik został wgrany, ale nie udało się przypisać go do dokumentu.");
+      showToast("Plik został wgrany, ale nie udało się przypisać go do dokumentu.");
       appState.documentUploadTargetId = null;
       return;
     }
@@ -2815,7 +2910,7 @@ async function handleDocumentFileSelected(event) {
     appState.documentUploadTargetId = null;
     await loadDocuments();
     await loadDashboardStats();
-    alert("Plik został dodany do dokumentu.");
+    showToast("Plik został dodany do dokumentu.");
     return;
   }
 
@@ -2823,7 +2918,7 @@ async function handleDocumentFileSelected(event) {
   if (hiddenPathInput) hiddenPathInput.value = storagePath;
 
   updateDocumentAttachmentUi();
-  alert("Plik został wgrany. Kliknij Zapisz, aby przypisać go do dokumentu.");
+  showToast("Plik został wgrany. Kliknij Zapisz, aby przypisać go do dokumentu.");
 }
 
 async function openCurrentDocumentFile() {
@@ -2849,7 +2944,7 @@ async function openDocumentFilePath(filePath) {
 
   if (error || !data?.signedUrl) {
     console.error(error);
-    alert("Nie udało się otworzyć pliku. Sprawdź dostęp do Supabase Storage.");
+    showToast("Nie udało się otworzyć pliku. Sprawdź dostęp do Supabase Storage.");
     return;
   }
 
@@ -2898,7 +2993,7 @@ async function handleDocumentFormSubmit(event) {
 
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak przypisanego koła. Nie można zapisać dokumentu.");
+    showToast("Brak przypisanego koła. Nie można zapisać dokumentu.");
     return;
   }
 
@@ -2910,7 +3005,7 @@ async function handleDocumentFormSubmit(event) {
   const notes = document.getElementById("documentNotes").value.trim();
 
   if (!title) {
-    alert("Podaj tytuł dokumentu.");
+    showToast("Podaj tytuł dokumentu.");
     return;
   }
 
@@ -2932,7 +3027,7 @@ async function handleDocumentFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się zaktualizować dokumentu.");
+      showToast("Nie udało się zaktualizować dokumentu.");
       return;
     }
   } else {
@@ -2940,7 +3035,7 @@ async function handleDocumentFormSubmit(event) {
 
     if (error) {
       console.error(error);
-      alert("Nie udało się dodać dokumentu.");
+      showToast("Nie udało się dodać dokumentu.");
       return;
     }
   }
@@ -2982,7 +3077,7 @@ async function handleDeleteDocument(documentId) {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się usunąć dokumentu.");
+    showToast("Nie udało się usunąć dokumentu.");
     return;
   }
 
@@ -3014,7 +3109,7 @@ window.handleDeleteDocument = handleDeleteDocument;
 function showActiveCircleForm() {
   const circle = getActiveCircle();
   if (!circle) {
-    alert("Brak aktywnego koła do edycji.");
+    showToast("Brak aktywnego koła do edycji.");
     return;
   }
 
@@ -3038,7 +3133,7 @@ async function handleActiveCircleFormSubmit(event) {
 
   const circleId = getActiveCircleId();
   if (!circleId) {
-    alert("Brak aktywnego koła.");
+    showToast("Brak aktywnego koła.");
     return;
   }
 
@@ -3053,7 +3148,7 @@ async function handleActiveCircleFormSubmit(event) {
   };
 
   if (!payload.name) {
-    alert("Nazwa koła jest wymagana.");
+    showToast("Nazwa koła jest wymagana.");
     return;
   }
 
@@ -3064,7 +3159,7 @@ async function handleActiveCircleFormSubmit(event) {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się zapisać danych koła. Sprawdź uprawnienia.");
+    showToast("Nie udało się zapisać danych koła. Sprawdź uprawnienia.");
     return;
   }
 
@@ -3074,7 +3169,7 @@ async function handleActiveCircleFormSubmit(event) {
   renderUserInfo();
   renderSuperAdminUi();
   setDefaultContributionGeneratorValues();
-  alert("Dane koła zostały zapisane.");
+  showToast("Dane koła zostały zapisane.");
 }
 
 function showCircleForm(circleId = null) {
@@ -3105,7 +3200,7 @@ async function handleCircleFormSubmit(event) {
   event.preventDefault();
 
   if (!isSuperAdmin()) {
-    alert("Tylko Super Admin może zarządzać kołami.");
+    showToast("Tylko Super Admin może zarządzać kołami.");
     return;
   }
 
@@ -3121,7 +3216,7 @@ async function handleCircleFormSubmit(event) {
   };
 
   if (!payload.name) {
-    alert("Nazwa koła jest wymagana.");
+    showToast("Nazwa koła jest wymagana.");
     return;
   }
 
@@ -3142,7 +3237,7 @@ async function handleCircleFormSubmit(event) {
 
   if (result.error) {
     console.error(result.error);
-    alert("Nie udało się zapisać koła.");
+    showToast("Nie udało się zapisać koła.");
     return;
   }
 
@@ -3158,8 +3253,228 @@ async function handleCircleFormSubmit(event) {
   renderUserInfo();
   renderSuperAdminUi();
   await loadAllCircleData();
-  alert("Koło zostało zapisane.");
+  showToast("Koło zostało zapisane.");
 }
+
+
+// =========================================================
+// UŻYTKOWNICY KOŁA / ROLE
+// =========================================================
+
+async function loadCircleUsers() {
+  const list = document.getElementById("circleUsersList");
+  const countLabel = document.getElementById("circleUsersCountLabel");
+
+  if (!list) return;
+
+  if (!canManageUsers()) {
+    appState.circleUsers = [];
+    list.innerHTML = "";
+    if (countLabel) setText("circleUsersCountLabel", "0 użytkowników");
+    return;
+  }
+
+  const circleId = getActiveCircleId();
+  if (!circleId) {
+    appState.circleUsers = [];
+    list.innerHTML = `<tr><td colspan="5">Brak aktywnego koła.</td></tr>`;
+    if (countLabel) setText("circleUsersCountLabel", "0 użytkowników");
+    return;
+  }
+
+  const { data, error } = await appState.supabase
+    .from("profiles")
+    .select("user_id, circle_id, display_name, email, role, is_active, created_at, updated_at")
+    .eq("circle_id", circleId)
+    .order("display_name", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    showToast("Nie udało się pobrać użytkowników koła.", "error");
+    appState.circleUsers = [];
+    renderCircleUsersList();
+    return;
+  }
+
+  appState.circleUsers = data || [];
+  renderCircleUsersList();
+}
+
+function renderCircleUsersList() {
+  const list = document.getElementById("circleUsersList");
+  const countLabel = document.getElementById("circleUsersCountLabel");
+
+  if (!list) return;
+
+  if (countLabel) {
+    setText("circleUsersCountLabel", `${appState.circleUsers.length} użytkowników`);
+  }
+
+  if (!canManageUsers()) {
+    list.innerHTML = "";
+    return;
+  }
+
+  if (!appState.circleUsers.length) {
+    list.innerHTML = `<tr><td colspan="5">Brak użytkowników przypisanych do aktywnego koła.</td></tr>`;
+    return;
+  }
+
+  list.innerHTML = appState.circleUsers.map((profile) => {
+    const statusClass = profile.is_active ? "status-active" : "status-cancelled";
+    const statusLabel = profile.is_active ? "Aktywny" : "Zablokowany";
+    const role = roleLabel(profile.role);
+    const canEditThisUser = canManageUsers() && profile.role !== "super_admin";
+
+    const actions = canEditThisUser
+      ? `<button type="button" onclick="window.handleEditCircleUser('${profile.user_id}')">Edytuj</button>
+         <button type="button" onclick="window.handleToggleCircleUser('${profile.user_id}')" class="secondary">${profile.is_active ? "Zablokuj" : "Aktywuj"}</button>`
+      : `<span class="muted">Administrator programu</span>`;
+
+    return `
+      <tr>
+        <td>
+          <span class="member-name">${escapeHtml(profile.display_name || "Użytkownik")}</span>
+          <span class="table-note">UID: ${escapeHtml(profile.user_id)}</span>
+        </td>
+        <td>${escapeHtml(profile.email || "-")}</td>
+        <td><span class="status-pill role-pill">${escapeHtml(role)}</span></td>
+        <td><span class="status-pill ${statusClass}">${statusLabel}</span></td>
+        <td class="table-actions">
+          ${actions}
+        </td>
+      </tr>`;
+  }).join("");
+}
+
+function showCircleUserForm(userId = null) {
+  if (!canManageUsers()) {
+    showToast("Brak uprawnień do zarządzania użytkownikami.", "error");
+    return;
+  }
+
+  const formBox = document.getElementById("circleUserFormBox");
+  const title = document.getElementById("circleUserFormTitle");
+  const user = userId ? appState.circleUsers.find((item) => item.user_id === userId) : null;
+
+  appState.editingCircleUser = user || null;
+
+  setInputValue("circleUserIdInput", user?.user_id || "");
+  setInputValue("circleUserUidInput", user?.user_id || "");
+  setInputValue("circleUserDisplayNameInput", user?.display_name || "");
+  setInputValue("circleUserEmailInput", user?.email || "");
+  setInputValue("circleUserRoleInput", user?.role && user.role !== "super_admin" ? user.role : "circle_admin");
+  setInputValue("circleUserActiveInput", user?.is_active === false ? "false" : "true");
+
+  const uidInput = document.getElementById("circleUserUidInput");
+  if (uidInput) {
+    uidInput.disabled = Boolean(user);
+  }
+
+  if (title) {
+    title.textContent = user ? "Edytuj profil użytkownika" : "Dodaj profil użytkownika";
+  }
+
+  formBox?.classList.remove("hidden");
+  document.getElementById("circleUserDisplayNameInput")?.focus();
+}
+
+function hideCircleUserForm() {
+  appState.editingCircleUser = null;
+  document.getElementById("circleUserFormBox")?.classList.add("hidden");
+  setInputValue("circleUserIdInput", "");
+  setInputValue("circleUserUidInput", "");
+  setInputValue("circleUserDisplayNameInput", "");
+  setInputValue("circleUserEmailInput", "");
+  setInputValue("circleUserRoleInput", "circle_admin");
+  setInputValue("circleUserActiveInput", "true");
+  const uidInput = document.getElementById("circleUserUidInput");
+  if (uidInput) uidInput.disabled = false;
+}
+
+async function handleCircleUserFormSubmit(event) {
+  event.preventDefault();
+
+  if (!canManageUsers()) {
+    showToast("Brak uprawnień do zarządzania użytkownikami.", "error");
+    return;
+  }
+
+  const circleId = getActiveCircleId();
+  if (!circleId) {
+    showToast("Brak aktywnego koła.", "error");
+    return;
+  }
+
+  const userId = document.getElementById("circleUserUidInput")?.value.trim();
+  const displayName = document.getElementById("circleUserDisplayNameInput")?.value.trim();
+  const email = document.getElementById("circleUserEmailInput")?.value.trim();
+  const role = document.getElementById("circleUserRoleInput")?.value;
+  const isActive = document.getElementById("circleUserActiveInput")?.value === "true";
+
+  if (!userId || !displayName) {
+    showToast("UID użytkownika i nazwa są wymagane.", "error");
+    return;
+  }
+
+  if (!["circle_admin", "staff", "accountant_readonly"].includes(role)) {
+    showToast("Nieprawidłowa rola użytkownika.", "error");
+    return;
+  }
+
+  const payload = {
+    user_id: userId,
+    circle_id: circleId,
+    display_name: displayName,
+    email: email || null,
+    role,
+    is_active: isActive
+  };
+
+  const { error } = await appState.supabase
+    .from("profiles")
+    .upsert(payload, { onConflict: "user_id" });
+
+  if (error) {
+    console.error(error);
+    showToast("Nie udało się zapisać profilu użytkownika. Sprawdź UID i uprawnienia.", "error");
+    return;
+  }
+
+  hideCircleUserForm();
+  await loadCircleUsers();
+  showToast("Profil użytkownika został zapisany.");
+}
+
+function handleEditCircleUser(userId) {
+  showCircleUserForm(userId);
+}
+
+async function handleToggleCircleUser(userId) {
+  const user = appState.circleUsers.find((item) => item.user_id === userId);
+  if (!user) return;
+
+  if (user.role === "super_admin") {
+    showToast("Nie można zablokować administratora programu z tego miejsca.", "error");
+    return;
+  }
+
+  const { error } = await appState.supabase
+    .from("profiles")
+    .update({ is_active: !user.is_active, updated_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .eq("circle_id", getActiveCircleId());
+
+  if (error) {
+    console.error(error);
+    showToast("Nie udało się zmienić statusu użytkownika.", "error");
+    return;
+  }
+
+  await loadCircleUsers();
+  showToast(user.is_active ? "Użytkownik został zablokowany." : "Użytkownik został aktywowany.");
+}
+
 
 function renderCirclesList() {
   const list = document.getElementById("circlesList");
@@ -3228,7 +3543,7 @@ async function toggleCircleStatus(circleId) {
 
   if (error) {
     console.error(error);
-    alert("Nie udało się zmienić statusu koła.");
+    showToast("Nie udało się zmienić statusu koła.");
     return;
   }
 
@@ -3257,6 +3572,8 @@ function circleStatusClass(status) {
 window.showCircleForm = showCircleForm;
 window.switchToCircle = switchToCircle;
 window.toggleCircleStatus = toggleCircleStatus;
+window.handleEditCircleUser = handleEditCircleUser;
+window.handleToggleCircleUser = handleToggleCircleUser;
 
 
 function normalizeText(value) {
@@ -3296,6 +3613,10 @@ function showPanel() {
 }
 
 function showView(viewName) {
+  if (viewName === "superAdmin" && !isSuperAdmin()) {
+    viewName = "dashboard";
+  }
+
   document.querySelectorAll(".nav-btn").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.view === viewName);
   });
@@ -3344,4 +3665,111 @@ function formatMoney(value) {
     style: "currency",
     currency: "PLN"
   }).format(Number(value || 0));
+}
+
+// =========================================================
+// POWIADOMIENIA / TOASTY
+// =========================================================
+
+function showAdminContactModal() {
+  const modal = document.getElementById("adminContactModal");
+  modal?.classList.remove("hidden");
+  document.body.classList.add("modal-open");
+}
+
+function hideAdminContactModal() {
+  const modal = document.getElementById("adminContactModal");
+  modal?.classList.add("hidden");
+  document.body.classList.remove("modal-open");
+}
+
+function showToast(message, type = "") {
+  const container = document.getElementById("toastContainer");
+  const text = String(message || "").trim();
+
+  if (!text) return;
+
+  const normalizedType = type || detectToastType(text);
+
+  if (!container) {
+    console.log(text);
+    return;
+  }
+
+  const toast = document.createElement("div");
+  toast.className = `toast toast-${normalizedType}`;
+  toast.setAttribute("role", normalizedType === "error" ? "alert" : "status");
+
+  const icon = document.createElement("span");
+  icon.className = "toast-icon";
+  icon.textContent = getToastIcon(normalizedType);
+
+  const body = document.createElement("div");
+  body.className = "toast-body";
+  body.textContent = text;
+
+  const closeBtn = document.createElement("button");
+  closeBtn.className = "toast-close";
+  closeBtn.type = "button";
+  closeBtn.setAttribute("aria-label", "Zamknij powiadomienie");
+  closeBtn.textContent = "×";
+
+  closeBtn.addEventListener("click", () => removeToast(toast));
+
+  toast.appendChild(icon);
+  toast.appendChild(body);
+  toast.appendChild(closeBtn);
+
+  container.appendChild(toast);
+
+  window.setTimeout(() => {
+    removeToast(toast);
+  }, normalizedType === "error" ? 6500 : 3800);
+}
+
+function detectToastType(message) {
+  const text = String(message || "").toLowerCase();
+
+  if (
+    text.includes("nie udało") ||
+    text.includes("błąd") ||
+    text.includes("brak ") ||
+    text.includes("podaj ") ||
+    text.includes("wymagana") ||
+    text.includes("sprawdź") ||
+    text.includes("nie można")
+  ) {
+    return "error";
+  }
+
+  if (
+    text.includes("został") ||
+    text.includes("została") ||
+    text.includes("zapisano") ||
+    text.includes("dodane") ||
+    text.includes("dodany") ||
+    text.includes("utworzono") ||
+    text.includes("usunięte") ||
+    text.includes("usunięty")
+  ) {
+    return "success";
+  }
+
+  return "info";
+}
+
+function getToastIcon(type) {
+  if (type === "success") return "✓";
+  if (type === "error") return "!";
+  return "i";
+}
+
+function removeToast(toast) {
+  if (!toast || toast.classList.contains("toast-hide")) return;
+
+  toast.classList.add("toast-hide");
+
+  window.setTimeout(() => {
+    toast.remove();
+  }, 220);
 }
