@@ -4005,7 +4005,7 @@ async function loadCircleUsers() {
     return;
   }
 
-  appState.circleUsers = data || [];
+  appState.circleUsers = (data || []).filter((profile) => profile.role !== "super_admin");
   renderCircleUsersList();
 }
 
@@ -4044,7 +4044,6 @@ function renderCircleUsersList() {
       <tr>
         <td>
           <span class="member-name">${escapeHtml(profile.display_name || "Użytkownik")}</span>
-          <span class="table-note">UID: ${escapeHtml(profile.user_id)}</span>
         </td>
         <td>${escapeHtml(profile.email || "-")}</td>
         <td><span class="status-pill role-pill">${escapeHtml(role)}</span></td>
