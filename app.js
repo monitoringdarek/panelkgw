@@ -159,6 +159,7 @@ function setupEvents() {
 
   const newFinanceEntryBtn = document.getElementById("newFinanceEntryBtn");
   const refreshFinanceBtn = document.getElementById("refreshFinanceBtn");
+  const exportFinanceExcelBtn = document.getElementById("exportFinanceExcelBtn");
   const financeSearch = document.getElementById("financeSearch");
   const financeTypeFilter = document.getElementById("financeTypeFilter");
   const financeStatusFilter = document.getElementById("financeStatusFilter");
@@ -195,6 +196,7 @@ function setupEvents() {
 
   newFinanceEntryBtn?.addEventListener("click", () => showFinanceForm());
   refreshFinanceBtn?.addEventListener("click", loadFinances);
+  exportFinanceExcelBtn?.addEventListener("click", exportFinanceToExcel);
   financeSearch?.addEventListener("input", handleFinanceSearch);
   financeTypeFilter?.addEventListener("change", handleFinanceFilterChange);
   financeStatusFilter?.addEventListener("change", handleFinanceFilterChange);
@@ -1348,6 +1350,29 @@ function exportContributionsToExcel() {
   exportRowsToXlsx(rows, "Składki", `skladki_${getSafeCircleName()}_${todayIso()}.xlsx`);
 }
 
+function exportFinanceToExcel() {
+  const finances = getVisibleFinances();
+
+  if (!finances.length) {
+    showToast("Brak wpisów finansowych do eksportu.", "info");
+    return;
+  }
+
+  const rows = finances.map((entry) => ({
+    "Data": entry.entry_date || "",
+    "Typ": entry.type === "income" ? "Wpływ" : "Wydatek",
+    "Kategoria": entry.category || "",
+    "Opis": entry.description || "",
+    "Metoda płatności": financePaymentMethodLabel(entry.payment_method),
+    "Kwota": entry.type === "expense" ? -Number(entry.amount || 0) : Number(entry.amount || 0),
+    "Status": entry.status === "active" ? "Aktywny" : "Anulowany",
+    "Źródło": financeSourceLabel(entry.source_type),
+    "Notatka": entry.notes || ""
+  }));
+
+  exportRowsToXlsx(rows, "Finanse", `finanse_${getSafeCircleName()}_${todayIso()}.xlsx`);
+}
+
 function exportRowsToXlsx(rows, sheetName, fileName) {
   if (!window.XLSX) {
     showToast("Nie udało się załadować biblioteki eksportu Excel. Odśwież stronę i spróbuj ponownie.", "error");
@@ -1882,19 +1907,16 @@ function handleFinanceFilterChange() {
   renderFinanceList();
 }
 
-function renderFinanceList() {
-  const listEl = document.getElementById("financesList");
-  if (!listEl) return;
-
+function getVisibleFinances() {
   const searchTerm = appState.financeSearchTerm;
   const typeFilter = appState.financeFilterType;
   const statusFilter = appState.financeFilterStatus;
   const yearFilter = appState.financeFilterYear;
 
-  const visibleFinances = (appState.finances || []).filter((entry) => {
+  return (appState.finances || []).filter((entry) => {
     if (typeFilter !== "all" && entry.type !== typeFilter) return false;
     if (statusFilter !== "all" && entry.status !== statusFilter) return false;
-    if (yearFilter !== "all" && entry.entry_date.substring(0, 4) !== yearFilter) return false;
+    if (yearFilter !== "all" && String(entry.entry_date || "").substring(0, 4) !== yearFilter) return false;
 
     const typeLabel = entry.type === "income" ? "Wpływ" : "Wydatek";
     const statusLabel = entry.status === "active" ? "Aktywny" : "Anulowany";
@@ -1917,6 +1939,13 @@ function renderFinanceList() {
 
     return !searchTerm || text.includes(searchTerm);
   });
+}
+
+function renderFinanceList() {
+  const listEl = document.getElementById("financesList");
+  if (!listEl) return;
+
+  const visibleFinances = getVisibleFinances();
 
   if (!visibleFinances.length) {
     listEl.innerHTML = `<div class="module-card"><p class="muted">Brak pasujących wpisów. Spróbuj zmienić wyszukiwanie, filtr lub odświeżyć.</p></div>`;
