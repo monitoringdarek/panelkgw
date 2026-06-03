@@ -83,6 +83,7 @@ function setupEvents() {
   const newMemberBtn = document.getElementById("newMemberBtn");
   const refreshMembersBtn = document.getElementById("refreshMembersBtn");
   const exportMembersExcelBtn = document.getElementById("exportMembersExcelBtn");
+  const printMembersBtn = document.getElementById("printMembersBtn");
   const memberSearch = document.getElementById("memberSearch");
   const memberForm = document.getElementById("memberForm");
   const cancelMemberBtn = document.getElementById("cancelMemberBtn");
@@ -90,6 +91,7 @@ function setupEvents() {
   const newContributionBtn = document.getElementById("newContributionBtn");
   const refreshContributionsBtn = document.getElementById("refreshContributionsBtn");
   const exportContributionsExcelBtn = document.getElementById("exportContributionsExcelBtn");
+  const printContributionsBtn = document.getElementById("printContributionsBtn");
   const contributionSearch = document.getElementById("contributionSearch");
   const generateContributionsBtn = document.getElementById("generateContributionsBtn");
   const contributionStatusFilter = document.getElementById("contributionStatusFilter");
@@ -122,6 +124,7 @@ function setupEvents() {
   newMemberBtn?.addEventListener("click", () => showMemberForm());
   refreshMembersBtn?.addEventListener("click", loadMembers);
   exportMembersExcelBtn?.addEventListener("click", exportMembersToExcel);
+  printMembersBtn?.addEventListener("click", printMembersList);
   memberSearch?.addEventListener("input", handleMemberSearch);
   memberForm?.addEventListener("submit", handleMemberFormSubmit);
   cancelMemberBtn?.addEventListener("click", hideMemberForm);
@@ -129,6 +132,7 @@ function setupEvents() {
   newContributionBtn?.addEventListener("click", () => showContributionForm());
   refreshContributionsBtn?.addEventListener("click", loadContributions);
   exportContributionsExcelBtn?.addEventListener("click", exportContributionsToExcel);
+  printContributionsBtn?.addEventListener("click", printContributionsList);
   generateContributionsBtn?.addEventListener("click", generateContributionsForPeriod);
   contributionSearch?.addEventListener("input", handleContributionSearch);
   contributionStatusFilter?.addEventListener("change", handleContributionFilterChange);
@@ -160,6 +164,7 @@ function setupEvents() {
   const newFinanceEntryBtn = document.getElementById("newFinanceEntryBtn");
   const refreshFinanceBtn = document.getElementById("refreshFinanceBtn");
   const exportFinanceExcelBtn = document.getElementById("exportFinanceExcelBtn");
+  const printFinanceBtn = document.getElementById("printFinanceBtn");
   const financeSearch = document.getElementById("financeSearch");
   const financeTypeFilter = document.getElementById("financeTypeFilter");
   const financeStatusFilter = document.getElementById("financeStatusFilter");
@@ -197,6 +202,7 @@ function setupEvents() {
   newFinanceEntryBtn?.addEventListener("click", () => showFinanceForm());
   refreshFinanceBtn?.addEventListener("click", loadFinances);
   exportFinanceExcelBtn?.addEventListener("click", exportFinanceToExcel);
+  printFinanceBtn?.addEventListener("click", printFinanceList);
   financeSearch?.addEventListener("input", handleFinanceSearch);
   financeTypeFilter?.addEventListener("change", handleFinanceFilterChange);
   financeStatusFilter?.addEventListener("change", handleFinanceFilterChange);
@@ -1372,6 +1378,283 @@ function exportFinanceToExcel() {
 
   exportRowsToXlsx(rows, "Finanse", `finanse_${getSafeCircleName()}_${todayIso()}.xlsx`);
 }
+
+
+function printMembersList() {
+  const members = getVisibleMembers();
+
+  if (!members.length) {
+    showToast("Brak członków do wydruku.", "info");
+    return;
+  }
+
+  const rows = members.map((member) => [
+    `${member.first_name || ""} ${member.last_name || ""}`.trim(),
+    member.phone || "",
+    member.email || "",
+    member.function_in_circle || "",
+    member.member_status === "inactive" ? "Nieaktywna" : "Aktywna",
+    member.notes || ""
+  ]);
+
+  openPrintReport({
+    title: "Lista członków",
+    subtitle: `${members.length} osób`,
+    headers: ["Członek", "Telefon", "E-mail", "Funkcja", "Status", "Notatka"],
+    rows
+  });
+}
+
+function printContributionsList() {
+  const contributions = getVisibleContributions();
+
+  if (!contributions.length) {
+    showToast("Brak składek do wydruku.", "info");
+    return;
+  }
+
+  const paidTotal = contributions
+    .filter((entry) => entry.status === "paid")
+    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const dueEntries = contributions.filter((entry) => entry.status === "due");
+  const dueTotal = dueEntries.reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+
+  const rows = contributions.map((entry) => {
+    const member = appState.members.find((memberItem) => memberItem.id === entry.member_id);
+    const memberName = member ? `${member.first_name} ${member.last_name}` : "Nieznany członek";
+    const periodLabel = entry.period_label || `${monthLabel(entry.contribution_month)} ${entry.contribution_year}`;
+
+    return [
+      memberName,
+      entry.contribution_year || "",
+      entry.contribution_month || "",
+      periodLabel || "",
+      formatMoney(Number(entry.amount || 0)),
+      contributionStatusLabel(entry.status),
+      contributionPaymentMethodLabel(entry.payment_method),
+      entry.paid_at || "",
+      entry.notes || ""
+    ];
+  });
+
+  openPrintReport({
+    title: "Zestawienie składek",
+    subtitle: `Zapłacone: ${formatMoney(paidTotal)} • Zaległe: ${formatMoney(dueTotal)} • Liczba zaległości: ${dueEntries.length}`,
+    headers: ["Członek", "Rok", "Miesiąc", "Okres", "Kwota", "Status", "Płatność", "Data wpłaty", "Notatka"],
+    rows,
+    numericColumns: [4]
+  });
+}
+
+function printFinanceList() {
+  const finances = getVisibleFinances();
+
+  if (!finances.length) {
+    showToast("Brak wpisów finansowych do wydruku.", "info");
+    return;
+  }
+
+  const activeEntries = finances.filter((entry) => entry.status === "active");
+  const income = activeEntries
+    .filter((entry) => entry.type === "income")
+    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const expenses = activeEntries
+    .filter((entry) => entry.type === "expense")
+    .reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
+  const balance = income - expenses;
+
+  const rows = finances.map((entry) => [
+    entry.entry_date || "",
+    entry.type === "income" ? "Wpływ" : "Wydatek",
+    entry.category || "",
+    entry.description || "",
+    financePaymentMethodLabel(entry.payment_method),
+    entry.type === "expense" ? `-${formatMoney(Number(entry.amount || 0))}` : formatMoney(Number(entry.amount || 0)),
+    entry.status === "active" ? "Aktywny" : "Anulowany",
+    financeSourceLabel(entry.source_type),
+    entry.notes || ""
+  ]);
+
+  openPrintReport({
+    title: "Zestawienie finansów",
+    subtitle: `Saldo: ${formatMoney(balance)} • Wpływy: ${formatMoney(income)} • Wydatki: ${formatMoney(expenses)}`,
+    headers: ["Data", "Typ", "Kategoria", "Opis", "Metoda", "Kwota", "Status", "Źródło", "Notatka"],
+    rows,
+    numericColumns: [5]
+  });
+}
+
+function openPrintReport({ title, subtitle = "", headers, rows, numericColumns = [] }) {
+  const circle = getActiveCircle();
+  const circleName = circle?.name || "Panel KGW";
+  const generatedAt = new Date().toLocaleString("pl-PL");
+  const safeTitle = escapeHtml(title);
+  const safeCircle = escapeHtml(circleName);
+  const safeSubtitle = escapeHtml(subtitle);
+
+  const headerHtml = headers
+    .map((header, index) => `<th class="${numericColumns.includes(index) ? "numeric" : ""}">${escapeHtml(header)}</th>`)
+    .join("");
+
+  const rowsHtml = rows
+    .map((row) => `
+      <tr>
+        ${row
+          .map((cell, index) => `<td class="${numericColumns.includes(index) ? "numeric" : ""}">${escapeHtml(cell)}</td>`)
+          .join("")}
+      </tr>
+    `)
+    .join("");
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="pl">
+    <head>
+      <meta charset="UTF-8" />
+      <title>${safeTitle} - ${safeCircle}</title>
+      <style>
+        @page {
+          size: A4 landscape;
+          margin: 12mm;
+        }
+
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0;
+          color: #243024;
+          font-family: Arial, sans-serif;
+          font-size: 12px;
+        }
+
+        .print-header {
+          display: flex;
+          justify-content: space-between;
+          gap: 16px;
+          align-items: flex-start;
+          border-bottom: 2px solid #6f8f72;
+          padding-bottom: 10px;
+          margin-bottom: 14px;
+        }
+
+        .brand {
+          color: #4f6f55;
+          font-weight: 800;
+          letter-spacing: 0.06em;
+          text-transform: uppercase;
+          font-size: 11px;
+        }
+
+        h1 {
+          margin: 4px 0 4px;
+          font-size: 22px;
+        }
+
+        .meta {
+          color: #6c756a;
+          line-height: 1.45;
+          text-align: right;
+        }
+
+        .subtitle {
+          margin: 0 0 12px;
+          padding: 8px 10px;
+          border: 1px solid #e5dfd1;
+          border-radius: 8px;
+          background: #fbfaf6;
+          color: #4f6f55;
+          font-weight: 700;
+        }
+
+        table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+
+        th {
+          background: #e5eee4;
+          color: #243024;
+          font-weight: 800;
+          text-align: left;
+        }
+
+        th,
+        td {
+          border: 1px solid #d8d1c2;
+          padding: 7px 8px;
+          vertical-align: top;
+          word-break: break-word;
+        }
+
+        tbody tr:nth-child(even) {
+          background: #fbfaf6;
+        }
+
+        .numeric {
+          text-align: right;
+          white-space: nowrap;
+        }
+
+        .footer {
+          margin-top: 12px;
+          color: #7a8276;
+          font-size: 10px;
+        }
+
+        @media print {
+          .no-print {
+            display: none !important;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-header">
+        <div>
+          <div class="brand">Panel KGW</div>
+          <h1>${safeTitle}</h1>
+          <div>${safeCircle}</div>
+        </div>
+        <div class="meta">
+          Data wydruku:<br />
+          <strong>${escapeHtml(generatedAt)}</strong>
+        </div>
+      </div>
+
+      ${safeSubtitle ? `<div class="subtitle">${safeSubtitle}</div>` : ""}
+
+      <table>
+        <thead>
+          <tr>${headerHtml}</tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+
+      <div class="footer">Wygenerowano w systemie Panel KGW.</div>
+
+      <script>
+        window.addEventListener("load", () => {
+          window.print();
+        });
+      </script>
+    </body>
+    </html>
+  `;
+
+  const printWindow = window.open("", "_blank", "width=1200,height=800");
+
+  if (!printWindow) {
+    showToast("Przeglądarka zablokowała okno wydruku. Zezwól na wyskakujące okna i spróbuj ponownie.", "error");
+    return;
+  }
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
+}
+
 
 function exportRowsToXlsx(rows, sheetName, fileName) {
   if (!window.XLSX) {
